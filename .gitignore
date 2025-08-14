@@ -1,1 +1,22 @@
+# Build outputs
+out/
+dist/
+*.vsix
+
+# Dependencies
+node_modules/
+
+# VSCode
+.vscode-test/
+.vscode/settings.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
 .specstory/*

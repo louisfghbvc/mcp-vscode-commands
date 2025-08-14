@@ -1,19 +1,28 @@
-# MCP VSCode Extension
+# MCP VSCode Commands Extension
 
-最小可行 MCP  VSCode Extension，允許 LLM（如 Cursor）透過 HTTP 呼叫 VSCode 命令，並回傳結果。
+允許 LLM 透過 **Model Context Protocol (MCP)** 直接執行 VSCode 命令的擴展。
 
----
+## ✨ 功能特色
 
-## 功能
+- 🔧 **執行 VSCode 命令**: 透過 MCP 執行任意 VSCode 內建或擴展命令
+- 📋 **列出可用命令**: 動態獲取所有可用命令，支援過濾搜尋
+- 🔒 **安全執行**: 完整的錯誤處理和結果序列化
+- 🚀 **即時通信**: 基於 stdio 的 MCP 協議實現
 
-- 執行任意 VSCode command
-- 回傳 command 執行結果
-- 可擴展：列出所有命令 ID、限制可執行命令、回傳編輯器/Workspace 資訊
+## 🛠️ MCP 工具
 
----
+### `vscode.executeCommand`
+執行指定的 VSCode 命令
+- **參數**: `commandId` (必需), `args` (可選)
+- **範例**: 格式化文件、開啟設定、儲存檔案等
 
-## 安裝
+### `vscode.listCommands`  
+列出所有可用的 VSCode 命令
+- **參數**: `filter` (可選) - 過濾字串
+- **回傳**: 過濾後的命令列表
 
-1. 將專案 clone 至本地：
+## 📦 安裝與使用
+
+### 1. 安裝依賴
 ```bash
-git clone <your-repo-url>
+npm install
