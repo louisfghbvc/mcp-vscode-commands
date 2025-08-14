@@ -1,28 +1,144 @@
 # MCP VSCode Commands Extension
 
-允許 LLM 透過 **Model Context Protocol (MCP)** 直接執行 VSCode 命令的擴展。
+A VSCode extension that allows LLMs to directly execute VSCode commands through the **Model Context Protocol (MCP)**.
 
-## ✨ 功能特色
+## ✨ Features
 
-- 🔧 **執行 VSCode 命令**: 透過 MCP 執行任意 VSCode 內建或擴展命令
-- 📋 **列出可用命令**: 動態獲取所有可用命令，支援過濾搜尋
-- 🔒 **安全執行**: 完整的錯誤處理和結果序列化
-- 🚀 **即時通信**: 基於 stdio 的 MCP 協議實現
+- 🔧 **Execute VSCode Commands**: Run any VSCode built-in or extension commands via MCP
+- 📋 **List Available Commands**: Dynamically retrieve all available commands with filtering support
+- 🔒 **Safe Execution**: Complete error handling and result serialization
+- 🚀 **Real-time Communication**: MCP protocol implementation over stdio
 
-## 🛠️ MCP 工具
+## 🛠️ MCP Tools
 
 ### `vscode.executeCommand`
-執行指定的 VSCode 命令
-- **參數**: `commandId` (必需), `args` (可選)
-- **範例**: 格式化文件、開啟設定、儲存檔案等
+Execute a specified VSCode command
+- **Parameters**: `commandId` (required), `args` (optional)
+- **Examples**: Format document, open settings, save files, etc.
 
 ### `vscode.listCommands`  
-列出所有可用的 VSCode 命令
-- **參數**: `filter` (可選) - 過濾字串
-- **回傳**: 過濾後的命令列表
+List all available VSCode commands
+- **Parameters**: `filter` (optional) - Filter string
+- **Returns**: Filtered list of commands
 
-## 📦 安裝與使用
+## 📦 Installation & Usage
 
-### 1. 安裝依賴
+### 1. Install Dependencies
 ```bash
 npm install
+```
+
+### 2. Compile Project
+```bash
+npm run compile
+```
+
+### 3. Launch Extension
+1. Open this project in VSCode
+2. Press `F5` to open Extension Development Host
+3. In the new window, the extension will automatically start the MCP server
+
+### 4. Connect LLM
+The MCP server communicates with LLMs via **stdio**. LLMs can use the following tools:
+
+## 🎯 Usage Examples
+
+### List Editor-Related Commands
+```json
+{
+  "name": "vscode.listCommands",
+  "arguments": {
+    "filter": "editor"
+  }
+}
+```
+
+### Format Current Document
+```json
+{
+  "name": "vscode.executeCommand",
+  "arguments": {
+    "commandId": "editor.action.formatDocument"
+  }
+}
+```
+
+### Open Settings Page
+```json
+{
+  "name": "vscode.executeCommand", 
+  "arguments": {
+    "commandId": "workbench.action.openSettings"
+  }
+}
+```
+
+### Execute Command with Arguments
+```json
+{
+  "name": "vscode.executeCommand",
+  "arguments": {
+    "commandId": "vscode.open",
+    "args": ["file:///path/to/file.txt"]
+  }
+}
+```
+
+## 🔧 Configuration Options
+
+Configure in VSCode settings:
+- `mcpVscodeCommands.autoStart`: Auto-start MCP server (default: true)
+- `mcpVscodeCommands.logLevel`: Log level (default: info)
+
+## 📚 Common Commands
+
+### Editor Operations
+- `editor.action.formatDocument` - Format current document
+- `editor.action.organizeImports` - Organize imports
+- `editor.action.commentLine` - Comment/uncomment lines
+- `editor.action.duplicateSelection` - Duplicate selection
+
+### Workspace Operations
+- `workbench.action.files.save` - Save current file
+- `workbench.action.files.saveAll` - Save all files
+- `workbench.action.closeActiveEditor` - Close current editor
+- `workbench.action.openSettings` - Open settings
+
+### Navigation Operations
+- `workbench.action.quickOpen` - Quick open files
+- `workbench.action.showCommands` - Show command palette
+- `workbench.action.gotoSymbol` - Go to symbol
+
+### Terminal Operations
+- `workbench.action.terminal.new` - Open new terminal
+- `workbench.action.terminal.toggleTerminal` - Toggle terminal
+
+## ⚠️ Error Handling
+
+If a command execution fails, an error message is returned:
+
+```json
+{
+  "content": [{
+    "type": "text", 
+    "text": "❌ Error: Command 'invalid.command' does not exist"
+  }],
+  "isError": true
+}
+```
+
+## 📖 More Examples
+
+For detailed usage examples, see [examples/basic-usage.md](./examples/basic-usage.md)
+
+## 🏗️ Development
+
+See [PROJECT_PLAN.md](./PROJECT_PLAN.md) for development plan and architecture design.
+
+## 🐛 Debugging
+
+Check VSCode Developer Tools console for detailed logging information.
+
+## 📝 License
+
+MIT License
