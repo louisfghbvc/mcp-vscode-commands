@@ -1,0 +1,68 @@
+name: Version Bump
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version type (major, minor, patch)'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  version-bump:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Configure Git
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+      - name: Bump version
+        id: version
+        run: |
+          npm version ${{ github.event.inputs.version }} --no-git-tag-version
+          VERSION=$(node -p "require('./package.json').version")
+          echo "new_version=$VERSION" >> $GITHUB_OUTPUT
+          
+      - name: Update CHANGELOG header
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          VERSION=${{ steps.version.outputs.new_version }}
+          
+          # 在 Unreleased 後面添加新版本
+          sed -i "/## \[Unreleased\]/a\\\n## [$VERSION] - $DATE\n" CHANGELOG.md
+          
+      - name: Commit changes
+        run: |
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}"
+          
+      - name: Create tag
+        run: |
+          git tag -a "v${{ steps.version.outputs.new_version }}" -m "Version ${{ steps.version.outputs.new_version }}"
+          
+      - name: Push changes
+        run: |
+          git push origin main
+          git push origin "v${{ steps.version.outputs.new_version }}"
+          
+      - name: Trigger Release Workflow
+        run: |
+          echo "✅ Version bumped to ${{ steps.version.outputs.new_version }}"
+          echo "🚀 Release workflow will be triggered automatically by the new tag"
