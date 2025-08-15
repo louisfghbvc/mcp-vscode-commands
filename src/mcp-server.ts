@@ -1,10 +1,13 @@
 import * as vscode from 'vscode';
-import WebSocket from 'ws';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { MCPServerConfig, CommandExecutionResult, LogContext } from './types.js';
-import { VSCodeCommandsTools } from './tools/vscode-commands.js';
+import * as WebSocket from 'ws';
+import { MCPServerConfig, CommandExecutionResult, LogContext } from './types';
+import { VSCodeCommandsTools } from './tools/vscode-commands';
+
+// Dynamic imports for ES modules
+let Server: any;
+let StdioServerTransport: any;
+let CallToolRequestSchema: any;
+let ListToolsRequestSchema: any;
 
 export class MCPVSCodeServer {
     private server: any;
@@ -22,10 +25,20 @@ export class MCPVSCodeServer {
         this.tools = new VSCodeCommandsTools(this.config);
     }
 
-    private initializeServer(): void {
+    private async loadESModules(): Promise<void> {
         if (this.initialized) return;
         
         try {
+            // Dynamic import of ES modules
+            const serverModule = await import('@modelcontextprotocol/sdk/server/index.js');
+            const stdioModule = await import('@modelcontextprotocol/sdk/server/stdio.js');
+            const typesModule = await import('@modelcontextprotocol/sdk/types.js');
+            
+            Server = serverModule.Server;
+            StdioServerTransport = stdioModule.StdioServerTransport;
+            CallToolRequestSchema = typesModule.CallToolRequestSchema;
+            ListToolsRequestSchema = typesModule.ListToolsRequestSchema;
+            
             // 初始化 MCP 服務器
             this.server = new Server({
                 name: 'mcp-vscode-commands',
@@ -38,7 +51,7 @@ export class MCPVSCodeServer {
             this.initialized = true;
             this.log('info', 'MCP VSCode Server 已初始化');
         } catch (error) {
-            this.log('error', 'Failed to initialize server', { error: String(error) });
+            this.log('error', 'Failed to load ES modules', { error: String(error) });
             throw error;
         }
     }
@@ -167,8 +180,8 @@ export class MCPVSCodeServer {
 
     async start(): Promise<void> {
         try {
-            // Initialize server
-            this.initializeServer();
+            // Load ES modules first
+            await this.loadESModules();
             
             // 同時啟動 stdio 和 WebSocket transport
             await this.startStdioTransport();
@@ -189,11 +202,11 @@ export class MCPVSCodeServer {
     }
 
     private async startWebSocketServer(): Promise<void> {
-        return new Promise(async (resolve, reject) => {
+        return new Promise((resolve, reject) => {
             try {
                 // 創建 HTTP server
-                const { createServer } = await import('http');
-                this.httpServer = createServer();
+                const http = require('http');
+                this.httpServer = http.createServer();
                 
                 // 創建 WebSocket server
                 this.wsServer = new WebSocket.Server({ 
@@ -222,9 +235,9 @@ export class MCPVSCodeServer {
     }
 
     private async handleWebSocketConnection(ws: WebSocket.WebSocket): Promise<void> {
-        // Ensure server is initialized
+        // Ensure ES modules are loaded
         if (!this.initialized) {
-            this.initializeServer();
+            await this.loadESModules();
         }
         
         // 為每個 WebSocket 連接創建新的 server 實例

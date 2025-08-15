@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { CommandExecutionResult, MCPServerConfig } from '../types.js';
+import { CommandExecutionResult, MCPServerConfig } from '../types';
 
 export class VSCodeCommandsTools {
     private config: MCPServerConfig;

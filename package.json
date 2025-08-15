@@ -5,7 +5,6 @@
   "version": "0.1.2",
   "author": "louisfghbvc",
   "publisher": "louisfghbvc",
-  "type": "module",
   "engines": {
     "vscode": "^1.74.0"
   },
