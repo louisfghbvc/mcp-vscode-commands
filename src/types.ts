@@ -28,7 +28,7 @@ export interface MCPServerConfig {
 
 export interface LogContext {
   command?: string;
-  args?: any[];
+  args?: any;
   filter?: string;
   error?: string;
   timestamp: string;

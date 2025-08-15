@@ -3,6 +3,7 @@
   "displayName": "MCP VSCode Commands",
   "description": "允許 LLM 透過 Model Context Protocol 執行 VSCode 命令",
   "version": "0.1.0",
+  "author": "louisfghbvc",
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -16,6 +17,10 @@
     "commands",
     "ai"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/louisfghbvc/mcp-vscode-commands.git"
+  },
   "activationEvents": [
     "onStartupFinished"
   ],

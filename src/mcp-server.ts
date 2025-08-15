@@ -1,12 +1,17 @@
 import * as vscode from 'vscode';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio';
-import { z } from 'zod';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { 
+    CallToolRequestSchema, 
+    ListToolsRequestSchema,
+    CallToolRequest,
+    ListToolsRequest 
+} from '@modelcontextprotocol/sdk/types.js';
 import { MCPServerConfig, CommandExecutionResult, LogContext } from './types';
 import { VSCodeCommandsTools } from './tools/vscode-commands';
 
 export class MCPVSCodeServer {
-    private mcpServer: McpServer;
+    private server: Server;
     private transport: StdioServerTransport | undefined;
     private config: MCPServerConfig;
     private tools: VSCodeCommandsTools;
@@ -15,7 +20,7 @@ export class MCPVSCodeServer {
         this.config = config;
         
         // 初始化 MCP 服務器
-        this.mcpServer = new McpServer({
+        this.server = new Server({
             name: 'mcp-vscode-commands',
             version: '0.1.0'
         });
@@ -24,48 +29,83 @@ export class MCPVSCodeServer {
         this.tools = new VSCodeCommandsTools(this.config);
         
         // 註冊工具
-        this.registerTools();
+        this.registerHandlers();
         
         this.log('info', 'MCP VSCode Server 已初始化');
     }
 
-    private registerTools(): void {
-        // 註冊 executeCommand 工具
-        this.mcpServer.registerTool(
-            'vscode.executeCommand',
-            {
-                title: 'Execute VSCode Command',
-                description: '執行指定的 VSCode 命令',
-                inputSchema: {
-                    commandId: z.string().describe('要執行的命令 ID'),
-                    args: z.array(z.any()).optional().describe('命令參數（可選）')
-                }
-            },
-            async ({ commandId, args = [] }: { commandId: string; args?: any[] }) => {
-                this.log('info', '執行命令', { command: commandId, args });
-                const result = await this.tools.executeCommand(commandId, args);
-                return this.formatToolResult(result);
-            }
-        );
+    private registerHandlers(): void {
+        // 註冊 list_tools 處理器
+        this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+            return {
+                tools: [
+                    {
+                        name: 'vscode.executeCommand',
+                        description: '執行指定的 VSCode 命令',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {
+                                commandId: {
+                                    type: 'string',
+                                    description: '要執行的命令 ID'
+                                },
+                                args: {
+                                    type: 'array',
+                                    description: '命令參數（可選）',
+                                    items: {}
+                                }
+                            },
+                            required: ['commandId']
+                        }
+                    },
+                    {
+                        name: 'vscode.listCommands',
+                        description: '列出所有可用的 VSCode 命令',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {
+                                filter: {
+                                    type: 'string',
+                                    description: '過濾字串（可選）'
+                                }
+                            }
+                        }
+                    }
+                ]
+            };
+        });
 
-        // 註冊 listCommands 工具
-        this.mcpServer.registerTool(
-            'vscode.listCommands',
-            {
-                title: 'List VSCode Commands',
-                description: '列出所有可用的 VSCode 命令',
-                inputSchema: {
-                    filter: z.string().optional().describe('過濾字串（可選）')
-                }
-            },
-            async ({ filter }: { filter?: string }) => {
-                this.log('info', '列出命令', { filter });
-                const result = await this.tools.listCommands(filter);
-                return this.formatToolResult(result);
-            }
-        );
+        // 註冊 call_tool 處理器
+        this.server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest) => {
+            const { name, arguments: args } = request.params;
+            
+            this.log('info', '執行工具', { command: name, args });
 
-        this.log('info', '所有工具已註冊完成');
+            try {
+                if (name === 'vscode.executeCommand') {
+                    const { commandId, args: commandArgs = [] } = args as { commandId: string; args?: any[] };
+                    const result = await this.tools.executeCommand(commandId, commandArgs);
+                    return this.formatToolResult(result);
+                } else if (name === 'vscode.listCommands') {
+                    const { filter } = args as { filter?: string };
+                    const result = await this.tools.listCommands(filter);
+                    return this.formatToolResult(result);
+                } else {
+                    throw new Error(`未知的工具: ${name}`);
+                }
+            } catch (error) {
+                this.log('error', '工具執行失敗', { error: String(error) });
+                return {
+                    content: [{
+                        type: 'text' as const,
+                        text: `❌ 錯誤: ${error instanceof Error ? error.message : String(error)}`
+                    }],
+                    isError: true
+                };
+            }
+        });
+
+        this.log('info', '所有處理器已註冊完成');
     }
 
     private formatToolResult(result: CommandExecutionResult) {
@@ -122,7 +162,7 @@ export class MCPVSCodeServer {
             this.transport = new StdioServerTransport();
             
             // 連接到 transport
-            await this.mcpServer.connect(this.transport);
+            await this.server.connect(this.transport);
             
             this.log('info', 'MCP 服務器已啟動，等待連接...');
         } catch (error) {
