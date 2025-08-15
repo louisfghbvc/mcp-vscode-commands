@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import * as WebSocket from 'ws';
 import { 
     CallToolRequestSchema, 
     ListToolsRequestSchema,
@@ -13,8 +14,11 @@ import { VSCodeCommandsTools } from './tools/vscode-commands';
 export class MCPVSCodeServer {
     private server: Server;
     private transport: StdioServerTransport | undefined;
+    private wsServer: WebSocket.Server | undefined;
+    private httpServer: any | undefined;
     private config: MCPServerConfig;
     private tools: VSCodeCommandsTools;
+    private port: number = 3001;
 
     constructor(config: MCPServerConfig) {
         this.config = config;
@@ -158,11 +162,9 @@ export class MCPVSCodeServer {
 
     async start(): Promise<void> {
         try {
-            // 建立 stdio transport
-            this.transport = new StdioServerTransport();
-            
-            // 連接到 transport
-            await this.server.connect(this.transport);
+            // 同時啟動 stdio 和 WebSocket transport
+            await this.startStdioTransport();
+            await this.startWebSocketServer();
             
             this.log('info', 'MCP 服務器已啟動，等待連接...');
         } catch (error) {
@@ -171,11 +173,170 @@ export class MCPVSCodeServer {
         }
     }
 
+    private async startStdioTransport(): Promise<void> {
+        // 建立 stdio transport (用於內部通信)
+        this.transport = new StdioServerTransport();
+        // 注意：stdio transport 通常在需要時才連接
+        this.log('info', 'Stdio transport 已準備');
+    }
+
+    private async startWebSocketServer(): Promise<void> {
+        return new Promise((resolve, reject) => {
+            try {
+                // 創建 HTTP server
+                const http = require('http');
+                this.httpServer = http.createServer();
+                
+                // 創建 WebSocket server
+                this.wsServer = new WebSocket.Server({ 
+                    server: this.httpServer,
+                    path: '/mcp'
+                });
+
+                this.wsServer.on('connection', (ws) => {
+                    this.log('info', 'WebSocket 客戶端已連接');
+                    this.handleWebSocketConnection(ws);
+                });
+
+                this.httpServer.listen(this.port, () => {
+                    this.log('info', `WebSocket MCP 服務器運行在端口 ${this.port}`);
+                    resolve();
+                });
+
+                this.httpServer.on('error', (error: any) => {
+                    reject(error);
+                });
+
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    private async handleWebSocketConnection(ws: WebSocket): Promise<void> {
+        // 為每個 WebSocket 連接創建新的 server 實例
+        const connectionServer = new Server({
+            name: 'mcp-vscode-commands',
+            version: '0.1.0'
+        });
+
+        // 註冊相同的處理器
+        this.registerHandlersForServer(connectionServer);
+
+        // 創建 WebSocket transport wrapper
+        const transport = this.createWebSocketTransport(ws);
+        
+        try {
+            await connectionServer.connect(transport);
+            this.log('info', 'WebSocket 客戶端已連接到 MCP 服務器');
+        } catch (error) {
+            this.log('error', 'WebSocket 連接失敗', { error: String(error) });
+            ws.close();
+        }
+    }
+
+    private createWebSocketTransport(ws: WebSocket) {
+        return {
+            start: async () => {
+                // WebSocket transport 實現
+                this.log('info', 'WebSocket transport 已啟動');
+            },
+            send: async (message: any) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify(message));
+                }
+            },
+            close: async () => {
+                ws.close();
+            }
+        };
+    }
+
+    private registerHandlersForServer(server: Server): void {
+        // 重複相同的處理器註冊邏輯
+        server.setRequestHandler(ListToolsRequestSchema, async () => {
+            return {
+                tools: [
+                    {
+                        name: 'vscode.executeCommand',
+                        description: '執行指定的 VSCode 命令',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {
+                                commandId: {
+                                    type: 'string',
+                                    description: '要執行的命令 ID'
+                                },
+                                args: {
+                                    type: 'array',
+                                    description: '命令參數（可選）',
+                                    items: {}
+                                }
+                            },
+                            required: ['commandId']
+                        }
+                    },
+                    {
+                        name: 'vscode.listCommands',
+                        description: '列出所有可用的 VSCode 命令',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {
+                                filter: {
+                                    type: 'string',
+                                    description: '過濾字串（可選）'
+                                }
+                            }
+                        }
+                    }
+                ]
+            };
+        });
+
+        server.setRequestHandler(CallToolRequestSchema, async (request) => {
+            const { name, arguments: args } = request.params;
+            
+            this.log('info', '執行工具', { command: name, args });
+
+            try {
+                if (name === 'vscode.executeCommand') {
+                    const { commandId, args: commandArgs = [] } = args as { commandId: string; args?: any[] };
+                    const result = await this.tools.executeCommand(commandId, commandArgs);
+                    return this.formatToolResult(result);
+                } else if (name === 'vscode.listCommands') {
+                    const { filter } = args as { filter?: string };
+                    const result = await this.tools.listCommands(filter);
+                    return this.formatToolResult(result);
+                } else {
+                    throw new Error(`未知的工具: ${name}`);
+                }
+            } catch (error) {
+                this.log('error', '工具執行失敗', { error: String(error) });
+                return {
+                    content: [{
+                        type: 'text' as const,
+                        text: `❌ 錯誤: ${error instanceof Error ? error.message : String(error)}`
+                    }],
+                    isError: true
+                };
+            }
+        });
+    }
+
     close(): void {
         try {
             if (this.transport) {
-                // Note: 根據 SDK 文檔，transport 會在服務器關閉時自動清理
                 this.transport = undefined;
+            }
+            
+            if (this.wsServer) {
+                this.wsServer.close();
+                this.wsServer = undefined;
+            }
+            
+            if (this.httpServer) {
+                this.httpServer.close();
+                this.httpServer = undefined;
             }
             
             this.log('info', 'MCP 服務器已關閉');
