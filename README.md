@@ -9,6 +9,39 @@ A VSCode extension that allows LLMs to directly execute VSCode commands through 
 - 🔒 **Safe Execution**: Complete error handling and result serialization
 - 🚀 **Real-time Communication**: MCP protocol implementation over stdio
 
+## 🏗️ Architecture
+
+```mermaid
+graph LR
+    subgraph "Cursor"
+        LLM["LLM<br/>(Claude)"]
+    end
+    
+    Bridge["stdio ↔ WebSocket<br/>Bridge"]
+    
+    subgraph "VSCode"
+        Extension["MCP Extension<br/>Port 3001"]
+        Commands["VSCode<br/>Commands"]
+    end
+    
+    LLM <-->|"MCP Protocol"| Bridge
+    Bridge <-->|"WebSocket"| Extension
+    Extension <-->|"API Calls"| Commands
+    
+    style LLM fill:#e1f5fe
+    style Bridge fill:#fff3e0
+    style Extension fill:#e8f5e9
+    style Commands fill:#f3e5f5
+```
+
+### How it Works
+
+1. **LLM in Cursor** sends MCP requests via stdio
+2. **Bridge** converts stdio to WebSocket and forwards to VSCode
+3. **MCP Extension** receives requests on port 3001
+4. **Extension** executes VSCode commands and returns results
+5. **Results** flow back through the same path
+
 ## 🛠️ MCP Tools
 
 ### `vscode.executeCommand`
@@ -23,23 +56,62 @@ List all available VSCode commands
 
 ## 📦 Installation & Usage
 
-### 1. Install Dependencies
+### Quick Setup Flow
+
+```mermaid
+graph LR
+    A["📦 Build<br/>npm run compile<br/>npx vsce package"] 
+    B["⚙️ Install<br/>VSCode Extension<br/>from .vsix"]
+    C["🔗 Configure<br/>Cursor MCP<br/>Auto or Manual"]
+    D["✅ Ready<br/>Use in Cursor"]
+    
+    A --> B
+    B --> C
+    C --> D
+    
+    style A fill:#fff3e0
+    style B fill:#e8f5e9
+    style C fill:#e1f5fe
+    style D fill:#f3e5f5
+```
+
+### Detailed Steps
+
+#### 1. Install Dependencies
 ```bash
 npm install
 ```
 
-### 2. Compile Project
+#### 2. Compile Project
 ```bash
 npm run compile
 ```
 
-### 3. Launch Extension
-1. Open this project in VSCode
-2. Press `F5` to open Extension Development Host
-3. In the new window, the extension will automatically start the MCP server
+#### 3. Package Extension
+```bash
+npx vsce package
+# This creates mcp-vscode-commands-0.1.0.vsix
+```
 
-### 4. Connect LLM
-The MCP server communicates with LLMs via **stdio**. LLMs can use the following tools:
+#### 4. Install Extension to VSCode
+- Open VSCode
+- Go to Extensions view (Ctrl/Cmd + Shift + X)
+- Click "..." menu → "Install from VSIX..."
+- Select the generated `.vsix` file
+
+#### 5. Configure Cursor
+**Option A: Automatic Setup (Recommended)**
+- Open Command Palette in VSCode (Ctrl/Cmd + Shift + P)
+- Run: `MCP VSCode Commands: Setup Cursor Config`
+- Extension will automatically configure Cursor
+
+**Option B: Manual Setup**
+- Create/edit `~/.cursor/claude_desktop_config.json` (Linux/Mac) or `%APPDATA%\Cursor\claude_desktop_config.json` (Windows)
+- Add the configuration from `examples/cursor-config.json`
+
+#### 6. Start Using
+- Restart Cursor to load the new MCP configuration
+- The LLM can now use VSCode commands through MCP tools
 
 ## 🎯 Usage Examples
 
@@ -133,7 +205,7 @@ For detailed usage examples, see [examples/basic-usage.md](./examples/basic-usag
 
 ## 🏗️ Development
 
-See [PROJECT_PLAN.md](./PROJECT_PLAN.md) for development plan and architecture design.
+See [PROJECT_PLAN.md](./docs/archive/PROJECT_PLAN.md) for development plan and architecture design.
 
 ## 🐛 Debugging
 

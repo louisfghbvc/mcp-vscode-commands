@@ -213,7 +213,7 @@ export class MCPVSCodeServer {
         });
     }
 
-    private async handleWebSocketConnection(ws: WebSocket): Promise<void> {
+    private async handleWebSocketConnection(ws: WebSocket.WebSocket): Promise<void> {
         // 為每個 WebSocket 連接創建新的 server 實例
         const connectionServer = new Server({
             name: 'mcp-vscode-commands',
@@ -235,14 +235,14 @@ export class MCPVSCodeServer {
         }
     }
 
-    private createWebSocketTransport(ws: WebSocket) {
+    private createWebSocketTransport(ws: WebSocket.WebSocket) {
         return {
             start: async () => {
                 // WebSocket transport 實現
                 this.log('info', 'WebSocket transport 已啟動');
             },
             send: async (message: any) => {
-                if (ws.readyState === WebSocket.OPEN) {
+                if (ws.readyState === WebSocket.WebSocket.OPEN) {
                     ws.send(JSON.stringify(message));
                 }
             },
