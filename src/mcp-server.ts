@@ -189,7 +189,7 @@ export class MCPVSCodeServer {
     }
 
     private async startWebSocketServer(): Promise<void> {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             try {
                 // 創建 HTTP server
                 const { createServer } = await import('http');
