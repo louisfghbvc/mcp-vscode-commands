@@ -4,6 +4,7 @@
   "description": "允許 LLM 透過 Model Context Protocol 執行 VSCode 命令",
   "version": "0.1.2",
   "author": "louisfghbvc",
+  "publisher": "louisfghbvc",
   "type": "module",
   "engines": {
     "vscode": "^1.74.0"

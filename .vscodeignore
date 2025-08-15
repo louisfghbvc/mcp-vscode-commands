@@ -7,6 +7,7 @@ tsconfig.json
 .eslintrc.json
 **/*.map
 **/*.ts
+.specstory/**
 node_modules/**
 !node_modules/@modelcontextprotocol/**
 !node_modules/ws/**
@@ -25,4 +26,5 @@ node_modules/**
 !node_modules/unpipe/**
 *.vsix
 docs/**
-mcp-vscode-commands-*.vsix
+package-lock.json
+.cursor/**
