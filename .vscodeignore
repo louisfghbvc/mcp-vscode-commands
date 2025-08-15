@@ -1,0 +1,50 @@
+# Exclude development files
+.vscode/**
+.vscode-test/**
+src/**
+.gitignore
+.specstory/**
+tsconfig.json
+vsc-extension-quickstart.md
+**/tsconfig.json
+**/*.map
+**/*.ts
+**/.eslintrc.json
+**/test/**
+**/tests/**
+**/jest.config.js
+**/*.test.js
+**/*.spec.js
+.github/**
+
+# Exclude documentation that's not needed in runtime
+docs/archive/**
+
+# Exclude build artifacts
+mcp-vscode-commands-*.vsix
+*.log
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# npm/yarn logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Exclude unnecessary node_modules subdirectories (keep only what's needed)
+node_modules/**/test/**
+node_modules/**/tests/**
+node_modules/**/examples/**
+node_modules/**/docs/**
+node_modules/**/*.md
+node_modules/**/*.map
+node_modules/**/*.ts
+node_modules/**/.*
+node_modules/**/LICENSE*
+node_modules/**/license*
+node_modules/**/CHANGELOG*
+node_modules/**/changelog*

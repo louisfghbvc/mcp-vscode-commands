@@ -1,41 +1,46 @@
 import * as vscode from 'vscode';
+import WebSocket from 'ws';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import * as WebSocket from 'ws';
-import { 
-    CallToolRequestSchema, 
-    ListToolsRequestSchema,
-    CallToolRequest,
-    ListToolsRequest 
-} from '@modelcontextprotocol/sdk/types.js';
-import { MCPServerConfig, CommandExecutionResult, LogContext } from './types';
-import { VSCodeCommandsTools } from './tools/vscode-commands';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { MCPServerConfig, CommandExecutionResult, LogContext } from './types.js';
+import { VSCodeCommandsTools } from './tools/vscode-commands.js';
 
 export class MCPVSCodeServer {
-    private server: Server;
-    private transport: StdioServerTransport | undefined;
+    private server: any;
+    private transport: any | undefined;
     private wsServer: WebSocket.Server | undefined;
     private httpServer: any | undefined;
     private config: MCPServerConfig;
     private tools: VSCodeCommandsTools;
     private port: number = 3001;
+    private initialized: boolean = false;
 
     constructor(config: MCPServerConfig) {
         this.config = config;
-        
-        // 初始化 MCP 服務器
-        this.server = new Server({
-            name: 'mcp-vscode-commands',
-            version: '0.1.0'
-        });
-
         // 初始化工具集
         this.tools = new VSCodeCommandsTools(this.config);
+    }
+
+    private initializeServer(): void {
+        if (this.initialized) return;
         
-        // 註冊工具
-        this.registerHandlers();
-        
-        this.log('info', 'MCP VSCode Server 已初始化');
+        try {
+            // 初始化 MCP 服務器
+            this.server = new Server({
+                name: 'mcp-vscode-commands',
+                version: '0.1.0'
+            });
+            
+            // 註冊工具
+            this.registerHandlers();
+            
+            this.initialized = true;
+            this.log('info', 'MCP VSCode Server 已初始化');
+        } catch (error) {
+            this.log('error', 'Failed to initialize server', { error: String(error) });
+            throw error;
+        }
     }
 
     private registerHandlers(): void {
@@ -80,7 +85,7 @@ export class MCPVSCodeServer {
         });
 
         // 註冊 call_tool 處理器
-        this.server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest) => {
+        this.server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
             const { name, arguments: args } = request.params;
             
             this.log('info', '執行工具', { command: name, args });
@@ -162,6 +167,9 @@ export class MCPVSCodeServer {
 
     async start(): Promise<void> {
         try {
+            // Initialize server
+            this.initializeServer();
+            
             // 同時啟動 stdio 和 WebSocket transport
             await this.startStdioTransport();
             await this.startWebSocketServer();
@@ -184,8 +192,8 @@ export class MCPVSCodeServer {
         return new Promise((resolve, reject) => {
             try {
                 // 創建 HTTP server
-                const http = require('http');
-                this.httpServer = http.createServer();
+                const { createServer } = await import('http');
+                this.httpServer = createServer();
                 
                 // 創建 WebSocket server
                 this.wsServer = new WebSocket.Server({ 
@@ -214,6 +222,11 @@ export class MCPVSCodeServer {
     }
 
     private async handleWebSocketConnection(ws: WebSocket.WebSocket): Promise<void> {
+        // Ensure server is initialized
+        if (!this.initialized) {
+            this.initializeServer();
+        }
+        
         // 為每個 WebSocket 連接創建新的 server 實例
         const connectionServer = new Server({
             name: 'mcp-vscode-commands',
@@ -252,7 +265,7 @@ export class MCPVSCodeServer {
         };
     }
 
-    private registerHandlersForServer(server: Server): void {
+    private registerHandlersForServer(server: any): void {
         // 重複相同的處理器註冊邏輯
         server.setRequestHandler(ListToolsRequestSchema, async () => {
             return {
@@ -293,7 +306,7 @@ export class MCPVSCodeServer {
             };
         });
 
-        server.setRequestHandler(CallToolRequestSchema, async (request) => {
+        server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
             const { name, arguments: args } = request.params;
             
             this.log('info', '執行工具', { command: name, args });

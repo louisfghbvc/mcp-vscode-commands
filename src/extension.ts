@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { MCPVSCodeServer } from './mcp-server';
-import { MCPServerConfig } from './types';
+import { MCPVSCodeServer } from './mcp-server.js';
+import { MCPServerConfig } from './types.js';
 
 let mcpServer: MCPVSCodeServer | undefined;
 
