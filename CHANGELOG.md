@@ -6,7 +6,15 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
-## [0.1.2] - 2025-08-15
+## [0.1.3] - 2025-08-15
+
+### 🐛 Fixed
+- **Critical**: Fixed dynamic import issue with eval-based solution
+  - TypeScript was converting `import()` to `require()` in CommonJS output
+  - Now using `eval()` to preserve true ES module imports
+  - Ensures compatibility between CommonJS extension and ESM dependencies
+
+## [0.1.2] - 2025-08-14
 
 ### 🐛 Fixed
 - **Critical**: Fixed ES Module compatibility issue preventing extension activation
@@ -44,7 +52,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Added WebSocket configuration examples
 - Updated README with connection instructions
 
-## [0.1.0] - 2025-08-14
+## [0.1.0] - 2025-08-13
 
 ### 🎉 Initial Release
 
@@ -78,11 +86,18 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 | Version | Date | Status | Key Changes |
 |---------|------|--------|-------------|
-| 0.1.2 | 2025-01-15 | Current | Fixed critical ES Module compatibility issues |
-| 0.1.1 | 2025-01-14 | Released | Added WebSocket support |
-| 0.1.0 | 2025-01-13 | Released | Initial release with core MCP functionality |
+| 0.1.3 | 2025-08-15 | Current | Fixed dynamic import with eval solution |
+| 0.1.2 | 2025-08-14 | Released | Fixed ES Module compatibility issues |
+| 0.1.1 | 2025-08-14 | Released | Added WebSocket support |
+| 0.1.0 | 2025-08-13 | Released | Initial release with core MCP functionality |
 
 ## Links
 - [GitHub Repository](https://github.com/louisfghbvc/mcp-vscode-commands)
 - [Report Issues](https://github.com/louisfghbvc/mcp-vscode-commands/issues)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
+
+## Recent Releases
+- [v0.1.3](https://github.com/louisfghbvc/mcp-vscode-commands/releases/tag/v0.1.3) - 2025-08-15
+- [v0.1.2](https://github.com/louisfghbvc/mcp-vscode-commands/releases/tag/v0.1.2) - 2025-08-14
+- [v0.1.1](https://github.com/louisfghbvc/mcp-vscode-commands/releases/tag/v0.1.1) - 2025-08-14
+- [v0.1.0](https://github.com/louisfghbvc/mcp-vscode-commands/releases/tag/v0.1.0) - 2025-08-13

@@ -29,10 +29,16 @@ export class MCPVSCodeServer {
         if (this.initialized) return;
         
         try {
+            // Use eval to prevent TypeScript from transforming dynamic imports
+            // This ensures we get true ES module imports, not require()
+            const dynamicImport = (modulePath: string) => {
+                return eval(`import('${modulePath}')`);
+            };
+            
             // Dynamic import of ES modules
-            const serverModule = await import('@modelcontextprotocol/sdk/server/index.js');
-            const stdioModule = await import('@modelcontextprotocol/sdk/server/stdio.js');
-            const typesModule = await import('@modelcontextprotocol/sdk/types.js');
+            const serverModule = await dynamicImport('@modelcontextprotocol/sdk/server/index.js');
+            const stdioModule = await dynamicImport('@modelcontextprotocol/sdk/server/stdio.js');
+            const typesModule = await dynamicImport('@modelcontextprotocol/sdk/types.js');
             
             Server = serverModule.Server;
             StdioServerTransport = stdioModule.StdioServerTransport;
