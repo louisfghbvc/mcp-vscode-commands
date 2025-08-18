@@ -42,6 +42,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - 舊版用戶需要重新執行 "Start MCP Server" 來更新配置
 - Cursor 配置格式已更新，但會自動處理
 
+### 🐛 Hotfix
+- **Critical**: Fixed dynamic import issue using eval() technique
+  - TypeScript was converting `import()` to `require()` despite CommonJS output
+  - Using `eval('(specifier) => import(specifier)')` to preserve true dynamic imports
+  - Ensures proper ES module loading for @modelcontextprotocol/sdk
+
 ## [0.1.2] - 2025-08-14
 
 ### 🐛 Fixed

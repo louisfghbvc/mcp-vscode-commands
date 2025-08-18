@@ -27,10 +27,12 @@ export class MCPSSEServer {
         if (this.initialized) return;
         
         try {
-            // Dynamic import of ES modules
-            const serverModule = await import('@modelcontextprotocol/sdk/server/index.js');
-            const sseModule = await import('@modelcontextprotocol/sdk/server/sse.js');
-            const typesModule = await import('@modelcontextprotocol/sdk/types.js');
+            // Use eval to prevent TypeScript from converting import() to require()
+            const dynamicImport = eval('(specifier) => import(specifier)');
+            
+            const serverModule = await dynamicImport('@modelcontextprotocol/sdk/server/index.js');
+            const sseModule = await dynamicImport('@modelcontextprotocol/sdk/server/sse.js');
+            const typesModule = await dynamicImport('@modelcontextprotocol/sdk/types.js');
             
             Server = serverModule.Server;
             SSEServerTransport = sseModule.SSEServerTransport;

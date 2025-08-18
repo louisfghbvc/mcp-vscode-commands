@@ -128,13 +128,13 @@ async function updateCursorMCPConfig(serverInfo: { port: number; url: string }):
             }
         }
         
-        // 確保有 servers 對象
-        if (!config.servers) {
-            config.servers = {};
+        // 確保有 mcpServers 對象
+        if (!config.mcpServers) {
+            config.mcpServers = {};
         }
         
         // 添加或更新 VSCode Commands 服務器配置
-        config.servers['vscode-commands'] = {
+        config.mcpServers['vscode-commands'] = {
             url: serverInfo.url,
             transport: 'sse'
         };
