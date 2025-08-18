@@ -1,8 +1,8 @@
 {
-  "mcpServers": {
+  "servers": {
     "vscode-commands": {
-      "command": "node",
-      "args": ["<absolute_path_to_mcp-vscode-commands>/src/bridge/websocket-client.js", "ws://localhost:3001/mcp"]
+      "url": "http://127.0.0.1:3000/mcp/sse",
+      "transport": "sse"
     }
   }
 }

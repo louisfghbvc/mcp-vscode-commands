@@ -1,121 +1,148 @@
 # MCP VSCode Commands Extension
 
-A VSCode extension that allows LLMs to directly execute VSCode commands through the **Model Context Protocol (MCP)**.
+一個允許 AI (如 Cursor 中的 Claude) 透過 **Model Context Protocol (MCP)** 直接執行 VSCode 命令的擴展。
 
-## ✨ Features
+## ✨ 主要功能
 
-- 🔧 **Execute VSCode Commands**: Run any VSCode built-in or extension commands via MCP
-- 📋 **List Available Commands**: Dynamically retrieve all available commands with filtering support
-- 🔒 **Safe Execution**: Complete error handling and result serialization
-- 🚀 **Real-time Communication**: MCP protocol implementation over stdio
+- 🔧 **執行 VSCode 命令**: 透過 MCP 執行任何 VSCode 內建或擴展命令
+- 📋 **列出可用命令**: 動態獲取所有可用命令並支援過濾
+- 🔄 **自動配置**: 自動設定 Cursor MCP 配置，無需手動操作
+- 🎯 **動態端口**: 智能端口分配，避免衝突
+- 🔒 **安全執行**: 完整錯誤處理和結果序列化
+- ⚡ **SSE 連線**: 基於 Server-Sent Events 的現代化通訊
 
-## 🏗️ Architecture
+## 🏗️ 架構
 
 ```mermaid
-graph LR
+graph TB
     subgraph "Cursor"
-        LLM["LLM<br/>(Claude)"]
+        LLM["AI Assistant<br/>(Claude)"]
     end
     
-    Bridge["stdio ↔ WebSocket<br/>Bridge"]
-    
-    subgraph "VSCode"
-        Extension["MCP Extension<br/>Port 3001"]
+    subgraph "VSCode Extension"
+        SSE["SSE Server<br/>(Dynamic Port)"]
+        MCP["MCP Handler"]
         Commands["VSCode<br/>Commands"]
     end
     
-    LLM <-->|"MCP Protocol"| Bridge
-    Bridge <-->|"WebSocket"| Extension
-    Extension <-->|"API Calls"| Commands
+    subgraph "Auto Config"
+        Config["~/.cursor/<br/>mcp.json"]
+    end
+    
+    LLM <-->|"MCP over SSE"| SSE
+    SSE <--> MCP
+    MCP <-->|"API Calls"| Commands
+    SSE -.->|"Auto Update"| Config
     
     style LLM fill:#e1f5fe
-    style Bridge fill:#fff3e0
-    style Extension fill:#e8f5e9
+    style SSE fill:#e8f5e9  
+    style MCP fill:#fff3e0
     style Commands fill:#f3e5f5
+    style Config fill:#fce4ec
 ```
 
-### How it Works
+### 🚀 工作流程
 
-1. **LLM in Cursor** sends MCP requests via stdio
-2. **Bridge** converts stdio to WebSocket and forwards to VSCode
-3. **MCP Extension** receives requests on port 3001
-4. **Extension** executes VSCode commands and returns results
-5. **Results** flow back through the same path
+1. **VSCode 擴展啟動** → 自動分配可用端口啟動 SSE server
+2. **自動配置** → 更新 `~/.cursor/mcp.json` 配置
+3. **Cursor 連接** → 透過 SSE 連接到 MCP server
+4. **執行命令** → AI 可直接使用 VSCode 命令工具
 
-## 🛠️ MCP Tools
+## 🛠️ MCP 工具
 
 ### `vscode.executeCommand`
-Execute a specified VSCode command
-- **Parameters**: `commandId` (required), `args` (optional)
-- **Examples**: Format document, open settings, save files, etc.
+執行指定的 VSCode 命令
+- **參數**: `commandId` (必需), `args` (可選)
+- **範例**: 格式化文件、開啟設定、保存檔案等
 
 ### `vscode.listCommands`  
-List all available VSCode commands
-- **Parameters**: `filter` (optional) - Filter string
-- **Returns**: Filtered list of commands
+列出所有可用的 VSCode 命令
+- **參數**: `filter` (可選) - 過濾字串
+- **回傳**: 過濾後的命令列表
 
-## 📦 Installation & Usage
+## 📦 安裝與使用
 
-### Quick Setup Flow
+### 🎯 快速開始
 
 ```mermaid
 graph LR
-    A["📦 Build<br/>npm run compile<br/>npx vsce package"] 
-    B["⚙️ Install<br/>VSCode Extension<br/>from .vsix"]
-    C["🔗 Configure<br/>Cursor MCP<br/>Auto or Manual"]
-    D["✅ Ready<br/>Use in Cursor"]
+    A["📦 安裝<br/>npm install<br/>npm run compile"] 
+    B["📄 打包<br/>npx vsce package"]
+    C["🔌 安裝擴展<br/>Install from VSIX"]
+    D["▶️ 啟動<br/>Start MCP Server"]
+    E["✅ 完成<br/>在 Cursor 中使用"]
     
     A --> B
     B --> C
     C --> D
+    D --> E
     
     style A fill:#fff3e0
     style B fill:#e8f5e9
     style C fill:#e1f5fe
     style D fill:#f3e5f5
+    style E fill:#e8f5e9
 ```
 
-### Detailed Steps
+### 📋 詳細步驟
 
-#### 1. Install Dependencies
+#### 1. 克隆並安裝依賴
 ```bash
+git clone https://github.com/louisfghbvc/mcp-vscode-commands.git
+cd mcp-vscode-commands
 npm install
 ```
 
-#### 2. Compile Project
+#### 2. 編譯和打包
 ```bash
+# 編譯 TypeScript
 npm run compile
-```
 
-#### 3. Package Extension
-```bash
+# 打包擴展
 npx vsce package
-# This creates mcp-vscode-commands-0.1.0.vsix
 ```
 
-#### 4. Install Extension to VSCode
-- Open VSCode
-- Go to Extensions view (Ctrl/Cmd + Shift + X)
-- Click "..." menu → "Install from VSIX..."
-- Select the generated `.vsix` file
+#### 3. 安裝到 VSCode/Cursor
+- 開啟 VSCode 或 Cursor
+- 前往擴展頁面 (`Ctrl/Cmd + Shift + X`)
+- 點擊 "..." 選單 → "Install from VSIX..."
+- 選擇生成的 `.vsix` 檔案
 
-#### 5. Configure Cursor
-**Option A: Automatic Setup (Recommended)**
-- Open Command Palette in VSCode (Ctrl/Cmd + Shift + P)
-- Run: `MCP VSCode Commands: Setup Cursor Config`
-- Extension will automatically configure Cursor
+#### 4. 啟動 MCP Server
+- 開啟命令面板 (`Ctrl/Cmd + Shift + P`)
+- 執行: **`Start MCP Server`**
+- 擴展會自動：
+  - 🔍 尋找可用端口
+  - 🚀 啟動 SSE server
+  - ⚙️ 更新 `~/.cursor/mcp.json`
+  - ✅ 顯示成功訊息
 
-**Option B: Manual Setup**
-- Create/edit `~/.cursor/claude_desktop_config.json` (Linux/Mac) or `%APPDATA%\Cursor\claude_desktop_config.json` (Windows)
-- Add the configuration from `examples/cursor-config.json`
+#### 5. 在 Cursor 中使用
+- 重新啟動 Cursor
+- AI 現在可以使用 VSCode 命令工具了！
 
-#### 6. Start Using
-- Restart Cursor to load the new MCP configuration
-- The LLM can now use VSCode commands through MCP tools
+## 💬 使用範例
 
-## 🎯 Usage Examples
+### 自然語言指令
+```
+請幫我格式化當前文件
+```
 
-### List Editor-Related Commands
+```
+請列出所有編輯器相關的命令
+```
+
+```
+請執行 workbench.action.openSettings 開啟設定
+```
+
+```
+請新建一個終端
+```
+
+### 直接 MCP 工具調用
+
+#### 列出編輯器相關命令
 ```json
 {
   "name": "vscode.listCommands",
@@ -125,7 +152,7 @@ npx vsce package
 }
 ```
 
-### Format Current Document
+#### 格式化當前文件
 ```json
 {
   "name": "vscode.executeCommand",
@@ -135,17 +162,7 @@ npx vsce package
 }
 ```
 
-### Open Settings Page
-```json
-{
-  "name": "vscode.executeCommand", 
-  "arguments": {
-    "commandId": "workbench.action.openSettings"
-  }
-}
-```
-
-### Execute Command with Arguments
+#### 帶參數的命令執行
 ```json
 {
   "name": "vscode.executeCommand",
@@ -156,61 +173,112 @@ npx vsce package
 }
 ```
 
-## 🔧 Configuration Options
+## ⚙️ 配置選項
 
-Configure in VSCode settings:
-- `mcpVscodeCommands.autoStart`: Auto-start MCP server (default: true)
-- `mcpVscodeCommands.logLevel`: Log level (default: info)
+在 VSCode 設定中配置：
+- `mcpVscodeCommands.autoStart`: 自動啟動 MCP server (預設: true)
+- `mcpVscodeCommands.logLevel`: 日誌級別 (預設: info)
 
-## 📚 Common Commands
+## 📚 常用命令
 
-### Editor Operations
-- `editor.action.formatDocument` - Format current document
-- `editor.action.organizeImports` - Organize imports
-- `editor.action.commentLine` - Comment/uncomment lines
-- `editor.action.duplicateSelection` - Duplicate selection
+### 📝 編輯器操作
+- `editor.action.formatDocument` - 格式化文件
+- `editor.action.organizeImports` - 整理 imports
+- `editor.action.commentLine` - 切換註解
+- `editor.action.duplicateSelection` - 複製選取內容
 
-### Workspace Operations
-- `workbench.action.files.save` - Save current file
-- `workbench.action.files.saveAll` - Save all files
-- `workbench.action.closeActiveEditor` - Close current editor
-- `workbench.action.openSettings` - Open settings
+### 💾 檔案操作
+- `workbench.action.files.save` - 保存當前檔案
+- `workbench.action.files.saveAll` - 保存所有檔案
+- `workbench.action.files.newUntitledFile` - 新建檔案
 
-### Navigation Operations
-- `workbench.action.quickOpen` - Quick open files
-- `workbench.action.showCommands` - Show command palette
-- `workbench.action.gotoSymbol` - Go to symbol
+### 🔍 導航操作
+- `workbench.action.quickOpen` - 快速開啟檔案
+- `workbench.action.showCommands` - 顯示命令面板
+- `workbench.action.gotoSymbol` - 跳到符號
 
-### Terminal Operations
-- `workbench.action.terminal.new` - Open new terminal
-- `workbench.action.terminal.toggleTerminal` - Toggle terminal
+### 🖥️ 終端操作
+- `workbench.action.terminal.new` - 開啟新終端
+- `workbench.action.terminal.toggleTerminal` - 切換終端
 
-## ⚠️ Error Handling
+## 🧪 測試與調試
 
-If a command execution fails, an error message is returned:
+### 測試 SSE 連接
+```bash
+# 自動掃描並測試
+node examples/test-sse-server.js
 
-```json
-{
-  "content": [{
-    "type": "text", 
-    "text": "❌ Error: Command 'invalid.command' does not exist"
-  }],
-  "isError": true
-}
+# 測試特定端口
+node examples/test-sse-server.js 3000
+
+# 掃描端口範圍
+node examples/test-sse-server.js scan 3000 8000
 ```
 
-## 📖 More Examples
+### 檢查配置
+```bash
+# 查看 Cursor MCP 配置
+cat ~/.cursor/mcp.json
+```
 
-For detailed usage examples, see [examples/basic-usage.md](./examples/basic-usage.md)
+### VSCode 開發者控制台
+開啟 VSCode Developer Tools 查看詳細日誌。
 
-## 🏗️ Development
+## 🔧 擴展命令
 
-See [PROJECT_PLAN.md](./docs/archive/PROJECT_PLAN.md) for development plan and architecture design.
+- **`Start MCP Server`** - 啟動 MCP server 並自動配置
+- **`Stop MCP Server`** - 停止 MCP server 並清理配置
+- **`Show MCP Server Status`** - 顯示 server 狀態和 URL
 
-## 🐛 Debugging
+## 📁 檔案結構
 
-Check VSCode Developer Tools console for detailed logging information.
+```
+mcp-vscode-commands/
+├── src/
+│   ├── extension.ts          # VSCode 擴展主檔案
+│   ├── mcp-sse-server.ts     # SSE-based MCP server
+│   ├── types.ts              # TypeScript 類型定義
+│   └── tools/                # MCP 工具實現
+├── examples/
+│   ├── README-MCP-Setup.md   # 詳細設定指南
+│   ├── basic-usage.md        # 基本使用範例
+│   ├── cursor-config.json    # Cursor 配置範例
+│   └── test-sse-server.js    # SSE 測試工具
+└── .github/workflows/        # GitHub Actions 自動化
+```
 
-## 📝 License
+## ❓ 故障排除
+
+### Server 無法啟動
+- 檢查 VSCode 開發者控制台的錯誤訊息
+- 確保端口沒有被其他程序佔用
+- 重新安裝擴展
+
+### Cursor 無法連接
+- 重新啟動 Cursor
+- 檢查 `~/.cursor/mcp.json` 檔案是否正確
+- 確認 MCP server 正在運行
+
+### 命令執行失敗
+- 確認命令 ID 是否正確
+- 檢查命令是否需要特定的上下文
+- 查看錯誤訊息獲取詳細資訊
+
+## 🤝 貢獻
+
+歡迎提交 Issues 和 Pull Requests！
+
+## 📄 更多資源
+
+- 📖 [詳細設定指南](./examples/README-MCP-Setup.md)
+- 🛠️ [使用範例](./examples/basic-usage.md)
+- 🌐 [MCP 官方文檔](https://modelcontextprotocol.io/)
+- 📚 [VSCode Commands 參考](https://code.visualstudio.com/api/references/commands)
+
+## 📝 授權
 
 MIT License
+
+---
+
+**讓 AI 助手與 VSCode 完美協作！** 🚀✨

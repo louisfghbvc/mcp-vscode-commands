@@ -8,11 +8,39 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [0.1.3] - 2025-08-15
 
-### 🐛 Fixed
-- **Critical**: Fixed dynamic import issue with eval-based solution
-  - TypeScript was converting `import()` to `require()` in CommonJS output
-  - Now using `eval()` to preserve true ES module imports
-  - Ensures compatibility between CommonJS extension and ESM dependencies
+### 🚀 Major Architecture Upgrade
+- **BREAKING**: 全面遷移到 SSE (Server-Sent Events) 架構
+  - 移除 WebSocket 和 stdio transport
+  - 改用基於 HTTP 的 SSE 傳輸協議
+  - 更符合現代 web 應用標準
+
+### ✨ New Features
+- **動態端口分配**: 系統自動選擇可用端口，完全避免端口衝突
+- **自動配置管理**: 自動建立和更新 `~/.cursor/mcp.json`
+- **智能測試工具**: 新的 `test-sse-server.js` 支援端口掃描和連線測試
+- **改進的狀態顯示**: `Show MCP Server Status` 顯示實際運行的 URL
+
+### 🔧 Improvements
+- **簡化架構**: 移除複雜的 bridge 和 transport 層
+- **更好的錯誤處理**: 改進的連線和命令執行錯誤處理
+- **現代化文檔**: 全新的 README 和範例文件
+- **開發者體驗**: 新增快速入門指南
+
+### 📚 Documentation
+- 全新設計的 README.md 與架構圖
+- 詳細的快速入門指南 (QUICKSTART.md)
+- 更新所有範例和配置文件
+- 改進的故障排除指南
+
+### 🗑️ Removed
+- WebSocket server 實現
+- stdio transport bridge
+- 複雜的端口偏好設定
+- 過時的手動配置步驟
+
+### 🔄 Migration
+- 舊版用戶需要重新執行 "Start MCP Server" 來更新配置
+- Cursor 配置格式已更新，但會自動處理
 
 ## [0.1.2] - 2025-08-14
 

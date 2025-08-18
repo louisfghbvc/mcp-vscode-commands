@@ -1,157 +1,106 @@
-# 🚀 Cursor MCP 配置指南
+# 🚀 MCP VSCode Commands 設定指南
 
-## 方法一：獨立 MCP 服務器（推薦用於測試）
+## ✨ 自動設定（推薦）
 
-### 1. 安裝依賴
-```bash
-cd /home/scratch.louiliu_vlsi_1/sideProject/mcp-vscode-commands
-npm install
-```
+這個擴展會自動配置 Cursor MCP 設定，無需手動操作！
 
-### 2. 配置 Cursor
+### 使用步驟：
 
-找到並編輯 Cursor 配置文件：
+1. **安裝擴展到 VSCode/Cursor**
+   ```bash
+   # 從 VSIX 安裝
+   code --install-extension mcp-vscode-commands-0.1.2.vsix
+   ```
 
-**macOS/Linux:**
-```bash
-~/.cursor/claude_desktop_config.json
-```
+2. **啟動 MCP Server**
+   - 開啟命令面板 (`Ctrl+Shift+P` / `Cmd+Shift+P`)
+   - 執行 `Start MCP Server`
+   - 擴展會自動：
+     - 啟動 SSE server (通常在 port 3000)
+     - 更新 `~/.cursor/mcp.json` 配置
+     - 顯示 server URL
 
-**Windows:**
-```bash
-%APPDATA%\Cursor\claude_desktop_config.json
-```
+3. **在 Cursor 中使用**
+   - 重新啟動 Cursor
+   - 在對話中使用 VSCode 命令：
+     ```
+     請幫我格式化當前文件
+     請列出所有編輯器相關的命令
+     請執行 workbench.action.openSettings 命令
+     ```
 
-添加以下配置：
+## 🔧 手動設定（進階用戶）
+
+如果需要自定義配置，可以手動編輯 `~/.cursor/mcp.json`：
+
+> **注意**: 由於使用動態端口分配，實際端口可能不是 3000。請查看 VSCode 中的 "Show MCP Server Status" 命令獲取正確的 URL。
 
 ```json
 {
-  "mcpServers": {
+  "servers": {
     "vscode-commands": {
-      "command": "node",
-      "args": ["/home/scratch.louiliu_vlsi_1/sideProject/mcp-vscode-commands/mcp-server-standalone.js"]
+      "url": "http://127.0.0.1:<動態端口>/mcp/sse",
+      "transport": "sse"
     }
   }
 }
 ```
 
-### 3. 測試連接
+## 🛠️ 可用工具
 
-重新啟動 Cursor，然後在對話中嘗試：
+### 1. `vscode.executeCommand`
+執行任何 VSCode 命令
 
-```
-請列出可用的 VSCode 命令
-```
+**參數:**
+- `commandId`: 命令 ID (必需)
+- `args`: 命令參數數組 (可選)
 
-或
+### 2. `vscode.listCommands`
+列出所有可用的 VSCode 命令
 
-```
-請執行 editor.action.formatDocument 命令
-```
+**參數:**
+- `filter`: 過濾字串 (可選)
 
----
+## 📝 常用命令範例
 
-## 方法二：VSCode 擴展 + MCP（完整功能）
+### 編輯器操作
+- `editor.action.formatDocument` - 格式化文件
+- `editor.action.organizeImports` - 整理 imports
+- `editor.action.commentLine` - 切換註解
 
-### 1. 安裝 VSCode 擴展
+### 文件操作
+- `workbench.action.files.save` - 保存文件
+- `workbench.action.files.saveAll` - 保存所有文件
+
+### 導航
+- `workbench.action.quickOpen` - 快速開啟檔案
+- `workbench.action.showCommands` - 命令面板
+
+## 🔍 測試連接
+
+使用測試腳本驗證 server 運行：
 
 ```bash
-code --install-extension /home/scratch.louiliu_vlsi_1/sideProject/mcp-vscode-commands/mcp-vscode-commands-0.1.0.vsix
+node examples/test-sse-server.js 3000
 ```
 
-### 2. 確保 VSCode 運行
+## ❓ 故障排除
 
-- 開啟 VSCode
-- 擴展會自動啟動 MCP 服務器
+### Server 未啟動
+- 檢查 VSCode 開發者控制台的錯誤訊息
+- 確保沒有其他程序佔用端口
 
-### 3. 配置 Cursor（進階）
+### Cursor 無法連接
+- 重新啟動 Cursor
+- 檢查 `~/.cursor/mcp.json` 檔案內容
+- 確認 server URL 正確
 
-如果您想要 Cursor 直接與 VSCode 擴展通信，需要更複雜的設置。
+### 端口衝突
+- 擴展會自動尋找可用端口 (3000, 3001, 3002, 8080, 8000)
+- 如果都被佔用，會使用系統分配的端口
 
----
+## 📚 更多資訊
 
-## 🧪 測試範例
-
-配置完成後，您可以在 Cursor 中嘗試以下指令：
-
-### 基本命令
-- `"請執行 VSCode 的格式化文件命令"`
-- `"列出所有包含 'editor' 的 VSCode 命令"`
-- `"開啟 VSCode 設定頁面"`
-
-### 進階用法
-- `"執行 workbench.action.files.save 命令來儲存文件"`
-- `"使用 workbench.action.terminal.new 開啟新終端"`
-
----
-
-## 🔧 故障排除
-
-### 1. 找不到配置文件
-創建目錄和文件：
-```bash
-mkdir -p ~/.cursor
-touch ~/.cursor/claude_desktop_config.json
-```
-
-### 2. 權限問題
-確保腳本可執行：
-```bash
-chmod +x /home/scratch.louiliu_vlsi_1/sideProject/mcp-vscode-commands/mcp-server-standalone.js
-```
-
-### 3. 路徑問題
-使用絕對路徑，並確保 Node.js 已安裝：
-```bash
-which node
-npm --version
-```
-
-### 4. 檢查日誌
-Cursor 的 MCP 日誌通常在開發者工具中可見。
-
----
-
-## 📋 可用工具
-
-### `vscode.executeCommand`
-- **參數**: `commandId` (必需), `args` (可選)
-- **範例**: 
-  ```json
-  {
-    "name": "vscode.executeCommand",
-    "arguments": {
-      "commandId": "editor.action.formatDocument"
-    }
-  }
-  ```
-
-### `vscode.listCommands`
-- **參數**: `filter` (可選)
-- **範例**:
-  ```json
-  {
-    "name": "vscode.listCommands", 
-    "arguments": {
-      "filter": "editor"
-    }
-  }
-  ```
-
----
-
-## ⚡ 快速開始
-
-1. **複製配置**：
-   ```bash
-   cp /home/scratch.louiliu_vlsi_1/sideProject/mcp-vscode-commands/examples/cursor-config.json ~/.cursor/claude_desktop_config.json
-   ```
-
-2. **重啟 Cursor**
-
-3. **測試**：
-   在 Cursor 中輸入：`"請列出可用的 VSCode 命令"`
-
----
-
-**注意**：獨立服務器版本目前只提供模擬功能。要獲得完整的 VSCode 命令執行能力，需要安裝並運行 VSCode 擴展。
+- [MCP 官方文檔](https://modelcontextprotocol.io/)
+- [VSCode Commands 參考](https://code.visualstudio.com/api/references/commands)
+- [專案 GitHub](https://github.com/louisfghbvc/mcp-vscode-commands)
