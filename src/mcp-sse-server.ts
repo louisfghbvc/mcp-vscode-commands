@@ -40,7 +40,7 @@ export class MCPSSEServer {
             ListToolsRequestSchema = typesModule.ListToolsRequestSchema;
             
             this.initialized = true;
-            console.log('[MCP-SSE] ES modules loaded');
+            console.error('[MCP-SSE] ES modules loaded'); // stderr is safe
         } catch (error) {
             console.error('[MCP-SSE] Failed to load ES modules:', error);
             throw error;
@@ -79,8 +79,6 @@ export class MCPSSEServer {
                     // 處理 SSE 連接
                     if (req.method === 'GET') {
                         await this.handleSSEConnection(req, res);
-                    } else if (req.method === 'POST') {
-                        await this.handleSSEMessage(req, res);
                     } else {
                         res.writeHead(405);
                         res.end('Method Not Allowed');
@@ -93,7 +91,7 @@ export class MCPSSEServer {
                     const actualPort = address.port;
                     const url = `http://127.0.0.1:${actualPort}${this.serverPath}`;
                     
-                    console.log(`[MCP-SSE] Server listening on ${url}`);
+                    console.error(`[MCP-SSE] Server listening on ${url}`); // stderr is safe
                     resolve({ port: actualPort, url });
                 });
 
@@ -111,78 +109,33 @@ export class MCPSSEServer {
 
 
     private async handleSSEConnection(req: http.IncomingMessage, res: http.ServerResponse) {
-        // 設置 SSE headers
-        res.writeHead(200, {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-            'X-Accel-Buffering': 'no' // 防止 nginx 緩存
-        });
-
         // 創建新的 MCP server 實例
         this.server = new Server({
             name: 'mcp-vscode-commands',
-            version: '0.1.2'
+            version: '0.1.3'
         });
 
         // 註冊處理器
         this.registerHandlers();
 
-        // 創建 SSE transport
+        // 創建 SSE transport - 它會自動處理 SSE headers 和協議
         const transport = new SSEServerTransport(this.serverPath, res);
         
         try {
             // 連接 server 到 transport
             await this.server.connect(transport);
             
-            console.log('[MCP-SSE] Client connected');
-            
-            // 發送初始化消息
-            res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
-            
-            // 保持連接活躍
-            const keepAlive = setInterval(() => {
-                res.write(':ping\n\n');
-            }, 30000);
+            console.error('[MCP-SSE] Client connected'); // stderr is safe
 
             // 處理連接關閉
             req.on('close', () => {
-                clearInterval(keepAlive);
-                console.log('[MCP-SSE] Client disconnected');
+                console.error('[MCP-SSE] Client disconnected'); // stderr is safe
             });
 
         } catch (error) {
             console.error('[MCP-SSE] Connection error:', error);
             res.end();
         }
-    }
-
-    private async handleSSEMessage(req: http.IncomingMessage, res: http.ServerResponse) {
-        let body = '';
-        
-        req.on('data', chunk => {
-            body += chunk.toString();
-        });
-
-        req.on('end', async () => {
-            try {
-                const message = JSON.parse(body);
-                
-                // 處理消息
-                if (this.server) {
-                    // 這裡應該將消息轉發到 MCP server
-                    // 實際實現需要根據 MCP SDK 的 SSE transport 規範
-                    console.log('[MCP-SSE] Received message:', message);
-                }
-                
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: true }));
-            } catch (error) {
-                console.error('[MCP-SSE] Message handling error:', error);
-                res.writeHead(400);
-                res.end('Bad Request');
-            }
-        });
     }
 
     private registerHandlers(): void {
@@ -232,7 +185,7 @@ export class MCPSSEServer {
         this.server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
             const { name, arguments: args } = request.params;
             
-            console.log('[MCP-SSE] Executing tool:', name, args);
+            console.error('[MCP-SSE] Executing tool:', name, args); // stderr is safe
 
             try {
                 if (name === 'vscode.executeCommand') {
@@ -316,7 +269,7 @@ export class MCPSSEServer {
             this.server = undefined;
         }
         
-        console.log('[MCP-SSE] Server stopped');
+        console.error('[MCP-SSE] Server stopped'); // stderr is safe
     }
 
     getServerInfo(): { port: number; url: string } {
