@@ -1,12 +1,12 @@
 {
   "name": "mcp-vscode-commands",
   "displayName": "MCP VSCode Commands",
-  "description": "允許 AI 透過 Model Context Protocol (SSE) 執行 VSCode 命令 - 自動配置、動態端口",
+  "description": "允許 AI 透過 VS Code 原生 Model Context Protocol 執行 VSCode 命令 - 零配置、原生整合",
   "version": "0.1.3",
   "author": "louisfghbvc",
   "publisher": "louisfghbvc",
   "engines": {
-    "vscode": "^1.74.0"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "Other"
@@ -14,14 +14,15 @@
   "keywords": [
     "mcp",
     "model-context-protocol",
+    "mcp-native",
     "llm",
     "ai",
     "cursor",
     "claude",
-    "sse",
-    "server-sent-events",
     "vscode-commands",
-    "automation"
+    "automation",
+    "agent-mode",
+    "stdio"
   ],
   "repository": {
     "type": "git",
@@ -32,33 +33,25 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": [
+    "mcpServerDefinitionProviders": [
       {
-        "command": "mcp-vscode-commands.start",
-        "title": "Start MCP Server"
-      },
-      {
-        "command": "mcp-vscode-commands.stop", 
-        "title": "Stop MCP Server"
-      },
-      {
-        "command": "mcp-vscode-commands.status",
-        "title": "Show MCP Server Status"
+        "id": "vscodeCommandsProvider",
+        "label": "VSCode Commands MCP Server Provider"
       }
     ],
     "configuration": {
       "title": "MCP VSCode Commands",
       "properties": {
-        "mcpVscodeCommands.autoStart": {
-          "type": "boolean",
-          "default": true,
-          "description": "擴展啟動時自動啟動 MCP 服務器"
-        },
         "mcpVscodeCommands.logLevel": {
           "type": "string",
           "enum": ["debug", "info", "warn", "error"],
           "default": "info",
           "description": "日誌記錄級別"
+        },
+        "mcpVscodeCommands.showWelcomeMessage": {
+          "type": "boolean",
+          "default": true,
+          "description": "顯示歡迎訊息當擴展升級到原生模式時"
         }
       }
     }
@@ -72,7 +65,7 @@
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
-    "@types/vscode": "^1.74.0",
+    "@types/vscode": "^1.85.0",
     "@types/node": "^18.x",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
