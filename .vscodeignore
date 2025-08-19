@@ -1,31 +1,53 @@
-.vscode/**
+# VS Code extension ignore patterns
+
+# Build output
+out/test/**
+test/**
 .vscode-test/**
+
+# Source files
 src/**
-.gitignore
-.github/**
-.yarnrc
-tsconfig.json
-.eslintrc.json
-**/*.map
-**/*.ts
-.specstory/**
+*.ts
+
+# Development files
+.ai/**
+task-management-memory-system/**
+performance-*.md
+performance-*.json
+optimization-*.md
+performance-test-runner.js
+
+# Node modules (will be bundled)
 node_modules/**
-!node_modules/@modelcontextprotocol/**
-!node_modules/ws/**
-!node_modules/zod/**
-!node_modules/bytes/**
-!node_modules/content-type/**
-!node_modules/depd/**
-!node_modules/http-errors/**
-!node_modules/iconv-lite/**
-!node_modules/inherits/**
-!node_modules/raw-body/**
-!node_modules/safer-buffer/**
-!node_modules/setprototypeof/**
-!node_modules/statuses/**
-!node_modules/toidentifier/**
-!node_modules/unpipe/**
-*.vsix
+
+# Git and other VCS files
+.git/**
+.gitignore
+
+# Editor files
+.vscode/**
+.cursorindexingignore
+
+# Documentation (keep only essential)
 docs/**
-package-lock.json
-.cursor/**
+
+# Test files
+**/test/**
+**/*.test.*
+**/*.spec.*
+
+# Temporary files
+*.log
+*.tmp
+.nyc_output
+
+# Build artifacts
+tsconfig.json
+tslint.json
+
+# Package files
+*.vsix
+
+# Development scripts
+verify-*.js
+test-*.js
