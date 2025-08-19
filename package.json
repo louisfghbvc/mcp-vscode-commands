@@ -39,6 +39,18 @@
         "label": "VSCode Commands MCP Server Provider"
       }
     ],
+    "commands": [
+      {
+        "command": "mcp-vscode-commands.cleanLegacyConfig",
+        "title": "Clean Legacy Config",
+        "category": "MCP"
+      },
+      {
+        "command": "mcp-vscode-commands.showMigrationReport",
+        "title": "Show Migration Report",
+        "category": "MCP"
+      }
+    ],
     "configuration": {
       "title": "MCP VSCode Commands",
       "properties": {
@@ -52,6 +64,11 @@
           "type": "boolean",
           "default": true,
           "description": "顯示歡迎訊息當擴展升級到原生模式時"
+        },
+        "mcpVscodeCommands.showMigrationNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "檢測到舊配置時顯示遷移通知"
         }
       }
     }

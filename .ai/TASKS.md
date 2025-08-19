@@ -17,15 +17,15 @@
 > Dependencies: 2, 3
 > 更新 extension.ts 以使用新的 MCP provider 而非 HTTP 服務器
 
-- [ ] **ID 5: 更新工具實作** (Priority: medium)
+- [x] **ID 5: 更新工具實作** (Priority: medium)
 > Dependencies: 3
 > 確保 VSCodeCommandsTools 與新的 stdio transport 相容
 
-- [ ] **ID 6: 創建遷移支援** (Priority: medium)
+- [x] **ID 6: 創建遷移支援** (Priority: medium)
 > Dependencies: 4
 > 實作工具來偵測和清理舊的 mcp.json 配置
 
-- [ ] **ID 7: 更新文檔和範例** (Priority: low)
+- [x] **ID 7: 更新文檔和範例** (Priority: low)
 > Dependencies: 4, 6
 > 更新 README、範例和使用說明以反映新的 VS Code 原生架構
 

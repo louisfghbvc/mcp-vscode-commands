@@ -1,52 +1,54 @@
 # MCP VSCode Commands Extension
 
-一個允許 AI (如 Cursor 中的 Claude) 透過 **Model Context Protocol (MCP)** 直接執行 VSCode 命令的擴展。
+一個允許 AI (如 Cursor 中的 Claude) 透過 **VS Code 原生 Model Context Protocol (MCP)** 直接執行 VSCode 命令的擴展。
+
+> 🎉 **v2.0 重大升級**: 已完全遷移到 VS Code 原生 MCP 架構，提供更簡潔、更可靠的體驗！
 
 ## ✨ 主要功能
 
 - 🔧 **執行 VSCode 命令**: 透過 MCP 執行任何 VSCode 內建或擴展命令
 - 📋 **列出可用命令**: 動態獲取所有可用命令並支援過濾
-- 🔄 **自動配置**: 自動設定 Cursor MCP 配置，無需手動操作
-- 🎯 **動態端口**: 智能端口分配，避免衝突
+- 🎯 **零配置安裝**: 無需手動配置，安裝即用
+- 🏗️ **原生整合**: 使用 VS Code 內建的 MCP 支援
 - 🔒 **安全執行**: 完整錯誤處理和結果序列化
-- ⚡ **SSE 連線**: 基於 Server-Sent Events 的現代化通訊
+- 🚀 **高效通訊**: 基於 stdio transport 的原生通訊
 
 ## 🏗️ 架構
 
 ```mermaid
 graph TB
-    subgraph "Cursor"
+    subgraph "Cursor/Claude"
         LLM["AI Assistant<br/>(Claude)"]
     end
     
-    subgraph "VSCode Extension"
-        SSE["SSE Server<br/>(Dynamic Port)"]
-        MCP["MCP Handler"]
-        Commands["VSCode<br/>Commands"]
+    subgraph "VS Code MCP System"
+        Provider["MCP Server<br/>Definition Provider"]
+        Server["Stdio MCP Server<br/>(Native Process)"]
+        Commands["VSCode<br/>Commands API"]
     end
     
-    subgraph "Auto Config"
-        Config["~/.cursor/<br/>mcp.json"]
+    subgraph "VS Code Extensions View"
+        Management["MCP Server<br/>Management UI"]
     end
     
-    LLM <-->|"MCP over SSE"| SSE
-    SSE <--> MCP
-    MCP <-->|"API Calls"| Commands
-    SSE -.->|"Auto Update"| Config
+    LLM <-->|"Native MCP Protocol"| Provider
+    Provider <-->|"stdio transport"| Server
+    Server <-->|"vscode.commands API"| Commands
+    Provider -.->|"Managed by"| Management
     
     style LLM fill:#e1f5fe
-    style SSE fill:#e8f5e9  
-    style MCP fill:#fff3e0
+    style Provider fill:#e8f5e9  
+    style Server fill:#fff3e0
     style Commands fill:#f3e5f5
-    style Config fill:#fce4ec
+    style Management fill:#fce4ec
 ```
 
 ### 🚀 工作流程
 
-1. **VSCode 擴展啟動** → 自動分配可用端口啟動 SSE server
-2. **自動配置** → 更新 `~/.cursor/mcp.json` 配置
-3. **Cursor 連接** → 透過 SSE 連接到 MCP server
-4. **執行命令** → AI 可直接使用 VSCode 命令工具
+1. **Extension 安裝** → 自動註冊 VS Code 原生 MCP provider
+2. **零配置啟動** → MCP 服務器自動在 Extensions 視圖中可用
+3. **原生管理** → 透過 VS Code 內建界面管理服務器
+4. **即時使用** → AI 可直接使用 VSCode 命令工具
 
 ## 🛠️ MCP 工具
 
@@ -62,64 +64,58 @@ graph TB
 
 ## 📦 安裝與使用
 
-### 🎯 快速開始
+### 🎯 快速開始 (零配置!)
 
 ```mermaid
 graph LR
-    A["📦 安裝<br/>npm install<br/>npm run compile"] 
-    B["📄 打包<br/>npx vsce package"]
-    C["🔌 安裝擴展<br/>Install from VSIX"]
-    D["▶️ 啟動<br/>Start MCP Server"]
-    E["✅ 完成<br/>在 Cursor 中使用"]
+    A["📦 下載<br/>從 Marketplace"] 
+    B["🔌 安裝<br/>Install Extension"]
+    C["✅ 完成<br/>即可在 Cursor 中使用"]
     
-    A --> B
-    B --> C
-    C --> D
-    D --> E
+    A --> B --> C
     
     style A fill:#fff3e0
     style B fill:#e8f5e9
     style C fill:#e1f5fe
-    style D fill:#f3e5f5
-    style E fill:#e8f5e9
 ```
 
-### 📋 詳細步驟
+### 📋 安裝步驟
 
-#### 1. 克隆並安裝依賴
+#### 方法 1: 從 VS Code Marketplace (推薦)
+1. 開啟 VS Code 或 Cursor
+2. 前往擴展頁面 (`Ctrl/Cmd + Shift + X`)
+3. 搜尋 "MCP VSCode Commands"
+4. 點擊安裝 - **完成！**
+
+#### 方法 2: 從原始碼安裝
 ```bash
+# 1. 克隆並安裝依賴
 git clone https://github.com/louisfghbvc/mcp-vscode-commands.git
 cd mcp-vscode-commands
 npm install
-```
 
-#### 2. 編譯和打包
-```bash
-# 編譯 TypeScript
+# 2. 編譯和打包
 npm run compile
-
-# 打包擴展
 npx vsce package
+
+# 3. 安裝 VSIX 檔案
+# 在 VS Code 中：Extensions → "..." → "Install from VSIX..."
 ```
 
-#### 3. 安裝到 VSCode/Cursor
-- 開啟 VSCode 或 Cursor
-- 前往擴展頁面 (`Ctrl/Cmd + Shift + X`)
-- 點擊 "..." 選單 → "Install from VSIX..."
-- 選擇生成的 `.vsix` 檔案
+### 🎉 使用 (零配置!)
 
-#### 4. 啟動 MCP Server
-- 開啟命令面板 (`Ctrl/Cmd + Shift + P`)
-- 執行: **`Start MCP Server`**
-- 擴展會自動：
-  - 🔍 尋找可用端口
-  - 🚀 啟動 SSE server
-  - ⚙️ 更新 `~/.cursor/mcp.json`
-  - ✅ 顯示成功訊息
+安裝後：
+1. **重新啟動 Cursor** (如果需要)
+2. **立即可用** - MCP 服務器已自動註冊到 VS Code
+3. **開始使用** - AI 現在可以使用 VSCode 命令工具了！
 
-#### 5. 在 Cursor 中使用
-- 重新啟動 Cursor
-- AI 現在可以使用 VSCode 命令工具了！
+### 📊 管理 MCP 服務器
+
+在 VS Code Extensions 視圖中，您可以：
+- ✅ **啟動/停止** MCP 服務器
+- 📊 **查看狀態** 和日誌
+- ⚙️ **配置權限** 和模型存取
+- 🔍 **瀏覽資源** 和工具
 
 ## 💬 使用範例
 
@@ -175,9 +171,16 @@ npx vsce package
 
 ## ⚙️ 配置選項
 
-在 VSCode 設定中配置：
-- `mcpVscodeCommands.autoStart`: 自動啟動 MCP server (預設: true)
+在 VS Code 設定中配置：
 - `mcpVscodeCommands.logLevel`: 日誌級別 (預設: info)
+- `mcpVscodeCommands.showWelcomeMessage`: 顯示歡迎訊息 (預設: true)
+- `mcpVscodeCommands.showMigrationNotifications`: 顯示遷移通知 (預設: true)
+
+## 🔧 MCP 管理命令
+
+使用命令面板 (`Ctrl/Cmd + Shift + P`)：
+- **`MCP: Clean Legacy Config`** - 清理舊的配置文件
+- **`MCP: Show Migration Report`** - 顯示遷移狀態報告
 
 ## 📚 常用命令
 
@@ -201,34 +204,15 @@ npx vsce package
 - `workbench.action.terminal.new` - 開啟新終端
 - `workbench.action.terminal.toggleTerminal` - 切換終端
 
-## 🧪 測試與調試
+## 🧪 調試
 
-### 測試 SSE 連接
-```bash
-# 自動掃描並測試
-node examples/test-sse-server.js
+### 查看 MCP 服務器狀態
+1. 開啟 Extensions 視圖 (`Ctrl/Cmd + Shift + X`)
+2. 找到 "VSCode Commands" MCP 服務器
+3. 右鍵選擇 "Show Output" 查看日誌
 
-# 測試特定端口
-node examples/test-sse-server.js 3000
-
-# 掃描端口範圍
-node examples/test-sse-server.js scan 3000 8000
-```
-
-### 檢查配置
-```bash
-# 查看 Cursor MCP 配置
-cat ~/.cursor/mcp.json
-```
-
-### VSCode 開發者控制台
-開啟 VSCode Developer Tools 查看詳細日誌。
-
-## 🔧 擴展命令
-
-- **`Start MCP Server`** - 啟動 MCP server 並自動配置
-- **`Stop MCP Server`** - 停止 MCP server 並清理配置
-- **`Show MCP Server Status`** - 顯示 server 狀態和 URL
+### 檢查服務器配置
+使用命令面板執行 `MCP: Show Migration Report` 查看詳細狀態。
 
 ## 📁 檔案結構
 
@@ -236,33 +220,56 @@ cat ~/.cursor/mcp.json
 mcp-vscode-commands/
 ├── src/
 │   ├── extension.ts          # VSCode 擴展主檔案
-│   ├── mcp-sse-server.ts     # SSE-based MCP server
+│   ├── mcp-provider.ts       # MCP Server Definition Provider
+│   ├── mcp-stdio-server.ts   # Stdio-based MCP server
+│   ├── migration-utils.ts    # 遷移工具
 │   ├── types.ts              # TypeScript 類型定義
 │   └── tools/                # MCP 工具實現
 ├── examples/
-│   ├── README-MCP-Setup.md   # 詳細設定指南
+│   ├── README-MCP-Setup.md   # 詳細設定指南  
 │   ├── basic-usage.md        # 基本使用範例
-│   ├── cursor-config.json    # Cursor 配置範例
-│   └── test-sse-server.js    # SSE 測試工具
-└── .github/workflows/        # GitHub Actions 自動化
+│   └── QUICKSTART.md         # 快速入門指南
+└── .ai/                      # Task Magic 系統 (開發用)
 ```
 
 ## ❓ 故障排除
 
-### Server 無法啟動
-- 檢查 VSCode 開發者控制台的錯誤訊息
-- 確保端口沒有被其他程序佔用
+### Extension 無法載入
+- 檢查 VS Code 開發者控制台的錯誤訊息
+- 確保使用 VS Code 1.85.0 或更新版本
 - 重新安裝擴展
 
-### Cursor 無法連接
-- 重新啟動 Cursor
-- 檢查 `~/.cursor/mcp.json` 檔案是否正確
-- 確認 MCP server 正在運行
+### MCP 服務器未出現
+- 重新啟動 VS Code/Cursor
+- 檢查 Extensions 視圖中的 MCP 區段
+- 執行 `MCP: Show Migration Report` 檢查狀態
 
-### 命令執行失敗
-- 確認命令 ID 是否正確
-- 檢查命令是否需要特定的上下文
-- 查看錯誤訊息獲取詳細資訊
+### AI 無法使用工具
+- 確保在 Extensions 視圖中啟動 MCP 服務器
+- 檢查模型存取權限配置
+- 查看 MCP 服務器日誌
+
+### 遷移問題
+- 執行 `MCP: Clean Legacy Config` 清理舊配置
+- 執行 `MCP: Show Migration Report` 查看遷移狀態
+- 手動刪除 `~/.cursor/mcp.json` 中的舊配置
+
+## 🔄 從舊版本遷移
+
+如果您使用的是 v1.x (SSE-based) 版本：
+
+1. **自動遷移**: Extension 會自動檢測舊配置並提供遷移選項
+2. **手動清理**: 使用 `MCP: Clean Legacy Config` 命令
+3. **驗證**: 使用 `MCP: Show Migration Report` 確認遷移完成
+
+## 🆕 v2.0 新功能
+
+- ✨ **零配置**: 無需手動設定，安裝即用
+- 🏗️ **原生整合**: 使用 VS Code 內建 MCP 支援
+- 📊 **原生管理**: 在 Extensions 視圖中管理服務器
+- 🚀 **更高效能**: stdio transport 比 HTTP/SSE 更快
+- 🛡️ **更安全**: 移除外部 HTTP 服務器和端口
+- 🧹 **更簡潔**: 70% 代碼減少，更易維護
 
 ## 🤝 貢獻
 
@@ -272,7 +279,7 @@ mcp-vscode-commands/
 
 - 📖 [詳細設定指南](./examples/README-MCP-Setup.md)
 - 🛠️ [使用範例](./examples/basic-usage.md)
-- 🌐 [MCP 官方文檔](https://modelcontextprotocol.io/)
+- 🌐 [VS Code MCP 指南](https://code.visualstudio.com/api/extension-guides/ai/mcp)
 - 📚 [VSCode Commands 參考](https://code.visualstudio.com/api/references/commands)
 
 ## 📝 授權
@@ -281,4 +288,4 @@ MIT License
 
 ---
 
-**讓 AI 助手與 VSCode 完美協作！** 🚀✨
+**讓 AI 助手與 VSCode 完美協作！零配置，原生整合！** 🚀✨

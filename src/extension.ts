@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { VSCodeCommandsMcpProvider } from './mcp-provider';
+import { MigrationUtils } from './migration-utils';
 
 let mcpProvider: VSCodeCommandsMcpProvider | undefined;
 
@@ -27,21 +28,13 @@ export function activate(context: vscode.ExtensionContext) {
         console.log('[MCP Extension] ✅ VS Code 原生 MCP Server Definition Provider 已註冊');
         console.log('[MCP Extension] 🎉 MCP 服務器將自動在 VS Code Extensions 視圖中可用');
         
-        // 可選：顯示用戶通知
-        const config = vscode.workspace.getConfiguration('mcpVscodeCommands');
-        const showWelcome = config.get<boolean>('showWelcomeMessage', true);
-        
-        if (showWelcome) {
-            vscode.window.showInformationMessage(
-                '🎉 MCP VSCode Commands 已升級到原生模式！現在可在 Extensions 視圖中管理 MCP 服務器。',
-                'Got it',
-                'Don\'t show again'
-            ).then(selection => {
-                if (selection === 'Don\'t show again') {
-                    config.update('showWelcomeMessage', false, true);
-                }
-            });
-        }
+        // 註冊遷移相關命令
+        registerMigrationCommands(context);
+
+        // 檢查遷移需求 (延遲執行避免阻塞啟動)
+        setTimeout(async () => {
+            await checkMigrationNeeded();
+        }, 2000);
         
     } catch (error) {
         console.error('[MCP Extension] ❌ 註冊 MCP Provider 失敗:', error);
@@ -51,6 +44,70 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     console.log('[MCP Extension] ✅ 擴展啟動完成');
+}
+
+/**
+ * 註冊遷移相關命令
+ */
+function registerMigrationCommands(context: vscode.ExtensionContext): void {
+    // 清理舊配置命令
+    const cleanLegacyConfigCommand = vscode.commands.registerCommand(
+        'mcp-vscode-commands.cleanLegacyConfig',
+        async () => {
+            const migrationInfo = await MigrationUtils.checkLegacyConfig();
+            
+            if (!migrationInfo.hasLegacyConfig) {
+                vscode.window.showInformationMessage('✅ 無需清理，配置已是最新狀態。');
+                return;
+            }
+
+            const confirmMessage = `即將清理舊的 MCP 配置:\n${migrationInfo.legacyEntries.join(', ')}\n\n這將創建備份文件，是否繼續？`;
+            const choice = await vscode.window.showWarningMessage(
+                confirmMessage,
+                'Yes, Clean Up',
+                'Cancel'
+            );
+
+            if (choice === 'Yes, Clean Up') {
+                await MigrationUtils.performMigration();
+            }
+        }
+    );
+
+    // 顯示遷移狀態報告命令
+    const showMigrationReportCommand = vscode.commands.registerCommand(
+        'mcp-vscode-commands.showMigrationReport',
+        async () => {
+            const report = await MigrationUtils.getMigrationReport();
+            vscode.window.showInformationMessage(report, { modal: true });
+        }
+    );
+
+    context.subscriptions.push(cleanLegacyConfigCommand, showMigrationReportCommand);
+}
+
+/**
+ * 檢查是否需要遷移
+ */
+async function checkMigrationNeeded(): Promise<void> {
+    try {
+        const config = vscode.workspace.getConfiguration('mcpVscodeCommands');
+        const showMigrationNotifications = config.get<boolean>('showMigrationNotifications', true);
+        
+        if (!showMigrationNotifications) {
+            return;
+        }
+
+        const migrationInfo = await MigrationUtils.checkLegacyConfig();
+        
+        if (migrationInfo.hasLegacyConfig) {
+            console.log('[MCP Extension] Legacy config detected, showing migration notification');
+            await MigrationUtils.showMigrationNotification(migrationInfo);
+        }
+
+    } catch (error) {
+        console.warn('[MCP Extension] Migration check failed:', error);
+    }
 }
 
 /**
