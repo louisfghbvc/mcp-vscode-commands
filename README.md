@@ -1,17 +1,17 @@
 # MCP VSCode Commands Extension
 
-一個允許 AI (如 Cursor 中的 Claude) 透過 **VS Code 原生 Model Context Protocol (MCP)** 直接執行 VSCode 命令的擴展。
+一個允許 AI (如 Cursor 中的 Claude) 透過 **Model Context Protocol (SSE)** 直接執行 VSCode 命令的擴展。
 
-> 🎉 **v2.0 重大升級**: 已完全遷移到 VS Code 原生 MCP 架構，提供更簡潔、更可靠的體驗！
+> 🔧 **穩定版本**: 使用成熟的 SSE (Server-Sent Events) 架構，提供可靠的 MCP 服務！
 
 ## ✨ 主要功能
 
 - 🔧 **執行 VSCode 命令**: 透過 MCP 執行任何 VSCode 內建或擴展命令
 - 📋 **列出可用命令**: 動態獲取所有可用命令並支援過濾
-- 🎯 **零配置安裝**: 無需手動配置，安裝即用
-- 🏗️ **原生整合**: 使用 VS Code 內建的 MCP 支援
+- 🎯 **自動配置**: 自動管理 Cursor MCP 配置，安裝即用
+- 🏗️ **SSE 架構**: 使用穩定的 Server-Sent Events 傳輸
 - 🔒 **安全執行**: 完整錯誤處理和結果序列化
-- 🚀 **高效通訊**: 基於 stdio transport 的原生通訊
+- 🚀 **動態端口**: 自動分配可用端口，避免衝突
 
 ## 🏗️ 架構
 
@@ -21,33 +21,33 @@ graph TB
         LLM["AI Assistant<br/>(Claude)"]
     end
     
-    subgraph "VS Code MCP System"
-        Provider["MCP Server<br/>Definition Provider"]
-        Server["Stdio MCP Server<br/>(Native Process)"]
+    subgraph "MCP VSCode Commands Extension"
+        Extension["VSCode Extension"]
+        SSEServer["SSE Server<br/>(Dynamic Port)"]
+        API["Cursor MCP API<br/>vscode.cursor.mcp"]
+    end
+    
+    subgraph "VSCode Runtime"
         Commands["VSCode<br/>Commands API"]
     end
     
-    subgraph "VS Code Extensions View"
-        Management["MCP Server<br/>Management UI"]
-    end
-    
-    LLM <-->|"Native MCP Protocol"| Provider
-    Provider <-->|"stdio transport"| Server
-    Server <-->|"vscode.commands API"| Commands
-    Provider -.->|"Managed by"| Management
+    LLM <-->|"SSE Protocol"| SSEServer
+    Extension -->|"registerServer()"| API
+    SSEServer <-->|"vscode.commands API"| Commands
+    Extension -.->|"Manages"| SSEServer
     
     style LLM fill:#e1f5fe
-    style Provider fill:#e8f5e9  
-    style Server fill:#fff3e0
+    style Extension fill:#e8f5e9  
+    style SSEServer fill:#fff3e0
     style Commands fill:#f3e5f5
-    style Management fill:#fce4ec
+    style API fill:#fce4ec
 ```
 
 ### 🚀 工作流程
 
-1. **Extension 安裝** → 自動註冊 VS Code 原生 MCP provider
-2. **零配置啟動** → MCP 服務器自動在 Extensions 視圖中可用
-3. **原生管理** → 透過 VS Code 內建界面管理服務器
+1. **Extension 安裝** → 自動啟動 SSE MCP 服務器
+2. **Cursor API 註冊** → 使用 `vscode.cursor.mcp.registerServer` 自動註冊
+3. **零配置體驗** → 無需手動編輯配置檔案
 4. **即時使用** → AI 可直接使用 VSCode 命令工具
 
 ## 🛠️ MCP 工具

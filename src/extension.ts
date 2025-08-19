@@ -1,128 +1,188 @@
 import * as vscode from 'vscode';
-import { VSCodeCommandsMcpProvider } from './mcp-provider';
-import { MigrationUtils } from './migration-utils';
+import { MCPSSEServer } from './mcp-sse-server';
+import { MCPServerConfig } from './types';
 
-let mcpProvider: VSCodeCommandsMcpProvider | undefined;
+// Cursor MCP Extension API 類型定義
+declare module 'vscode' {
+    export namespace cursor {
+        export namespace mcp {
+            export interface RemoteServerConfig {
+                name: string;
+                server: {
+                    url: string;
+                    headers?: Record<string, string>;
+                }
+            }
+            
+            export interface StdioServerConfig {
+                name: string;
+                server: {
+                    command: string;
+                    args: string[];
+                    env: Record<string, string>;
+                }
+            }
+            
+            export type ExtMCPServerConfig = StdioServerConfig | RemoteServerConfig;
+            
+            export const registerServer: (config: ExtMCPServerConfig) => void;
+            export const unregisterServer: (serverName: string) => void;
+        }
+    }
+}
 
-/**
- * Extension 啟動函數
- * 
- * 此函數僅負責註冊 VS Code 原生 MCP Server Definition Provider
- * 移除了所有舊的 HTTP 服務器和手動配置管理代碼
- */
+let mcpServer: MCPSSEServer | undefined;
+
 export function activate(context: vscode.ExtensionContext) {
-    console.log('[MCP Extension] 啟動 VS Code 原生 MCP 擴展...');
+    console.log('MCP VSCode Commands 擴展正在啟動...');
     
-    try {
-        // 創建並註冊 VS Code 原生 MCP Server Definition Provider
-        mcpProvider = new VSCodeCommandsMcpProvider(context);
-        const providerRegistration = vscode.lm.registerMcpServerDefinitionProvider(
-            'vscodeCommandsProvider',
-            mcpProvider
-        );
-        
-        // 確保正確清理資源
-        context.subscriptions.push(providerRegistration);
-        context.subscriptions.push(mcpProvider);
-        
-        console.log('[MCP Extension] ✅ VS Code 原生 MCP Server Definition Provider 已註冊');
-        console.log('[MCP Extension] 🎉 MCP 服務器將自動在 VS Code Extensions 視圖中可用');
-        
-        // 註冊遷移相關命令
-        registerMigrationCommands(context);
+    // 註冊命令
+    const startCommand = vscode.commands.registerCommand('mcp-vscode-commands.start', async () => {
+        await startMCPServer();
+    });
+    
+    const stopCommand = vscode.commands.registerCommand('mcp-vscode-commands.stop', async () => {
+        await stopMCPServer();
+    });
+    
+    const statusCommand = vscode.commands.registerCommand('mcp-vscode-commands.status', () => {
+        showServerStatus();
+    });
 
-        // 檢查遷移需求 (延遲執行避免阻塞啟動)
-        setTimeout(async () => {
-            await checkMigrationNeeded();
-        }, 2000);
-        
-    } catch (error) {
-        console.error('[MCP Extension] ❌ 註冊 MCP Provider 失敗:', error);
-        vscode.window.showErrorMessage(
-            `MCP Provider 註冊失敗: ${error instanceof Error ? error.message : String(error)}`
-        );
+    context.subscriptions.push(startCommand, stopCommand, statusCommand);
+
+    // 根據配置自動啟動
+    const config = getConfig();
+    if (config.autoStart) {
+        startMCPServer();
     }
 
-    console.log('[MCP Extension] ✅ 擴展啟動完成');
+    console.log('MCP VSCode Commands 擴展已啟動');
 }
 
-/**
- * 註冊遷移相關命令
- */
-function registerMigrationCommands(context: vscode.ExtensionContext): void {
-    // 清理舊配置命令
-    const cleanLegacyConfigCommand = vscode.commands.registerCommand(
-        'mcp-vscode-commands.cleanLegacyConfig',
-        async () => {
-            const migrationInfo = await MigrationUtils.checkLegacyConfig();
-            
-            if (!migrationInfo.hasLegacyConfig) {
-                vscode.window.showInformationMessage('✅ 無需清理，配置已是最新狀態。');
-                return;
-            }
-
-            const confirmMessage = `即將清理舊的 MCP 配置:\n${migrationInfo.legacyEntries.join(', ')}\n\n這將創建備份文件，是否繼續？`;
-            const choice = await vscode.window.showWarningMessage(
-                confirmMessage,
-                'Yes, Clean Up',
-                'Cancel'
-            );
-
-            if (choice === 'Yes, Clean Up') {
-                await MigrationUtils.performMigration();
-            }
-        }
-    );
-
-    // 顯示遷移狀態報告命令
-    const showMigrationReportCommand = vscode.commands.registerCommand(
-        'mcp-vscode-commands.showMigrationReport',
-        async () => {
-            const report = await MigrationUtils.getMigrationReport();
-            vscode.window.showInformationMessage(report, { modal: true });
-        }
-    );
-
-    context.subscriptions.push(cleanLegacyConfigCommand, showMigrationReportCommand);
+export function deactivate() {
+    if (mcpServer) {
+        mcpServer.stop();
+        mcpServer = undefined;
+    }
 }
 
-/**
- * 檢查是否需要遷移
- */
-async function checkMigrationNeeded(): Promise<void> {
+async function startMCPServer(): Promise<void> {
+    if (mcpServer) {
+        vscode.window.showInformationMessage('MCP 服務器已經在運行中');
+        return;
+    }
+
     try {
-        const config = vscode.workspace.getConfiguration('mcpVscodeCommands');
-        const showMigrationNotifications = config.get<boolean>('showMigrationNotifications', true);
+        const config = getConfig();
+        mcpServer = new MCPSSEServer(config);
         
-        if (!showMigrationNotifications) {
+        // 啟動 SSE 服務器
+        const serverInfo = await mcpServer.start();
+        
+        // 使用 Cursor 官方 MCP Extension API 註冊服務器
+        await registerWithCursorAPI(serverInfo);
+        
+        vscode.window.showInformationMessage(`✅ MCP 服務器已啟動並註冊到 Cursor\n🌐 ${serverInfo.url}`);
+        console.log('MCP SSE 服務器已成功啟動並註冊:', serverInfo);
+    } catch (error) {
+        const message = `啟動 MCP 服務器失敗: ${error}`;
+        vscode.window.showErrorMessage(message);
+        console.error(message);
+    }
+}
+
+async function stopMCPServer(): Promise<void> {
+    if (!mcpServer) {
+        vscode.window.showInformationMessage('MCP 服務器未運行');
+        return;
+    }
+
+    try {
+        mcpServer.stop();
+        mcpServer = undefined;
+        
+        // 使用 Cursor 官方 MCP Extension API 取消註冊服務器
+        await unregisterFromCursorAPI();
+        
+        vscode.window.showInformationMessage('✅ MCP 服務器已停止並從 Cursor 取消註冊');
+        console.log('MCP 服務器已停止並取消註冊');
+    } catch (error) {
+        const message = `停止 MCP 服務器失敗: ${error}`;
+        vscode.window.showErrorMessage(message);
+        console.error(message);
+    }
+}
+
+function showServerStatus(): void {
+    const isRunning = mcpServer !== undefined;
+    if (isRunning && mcpServer) {
+        const info = mcpServer.getServerInfo();
+        vscode.window.showInformationMessage(`MCP 服務器運行中: ${info.url}`);
+    } else {
+        vscode.window.showInformationMessage('MCP 服務器已停止');
+    }
+}
+
+function getConfig(): MCPServerConfig {
+    const vscodeConfig = vscode.workspace.getConfiguration('mcpVscodeCommands');
+    return {
+        autoStart: vscodeConfig.get<boolean>('autoStart', true),
+        logLevel: vscodeConfig.get<'debug' | 'info' | 'warn' | 'error'>('logLevel', 'info')
+    };
+}
+
+/**
+ * 使用 Cursor 官方 MCP Extension API 註冊服務器
+ */
+async function registerWithCursorAPI(serverInfo: { port: number; url: string }): Promise<void> {
+    try {
+        // 檢查 Cursor MCP API 是否可用
+        if (!vscode.cursor?.mcp?.registerServer) {
+            console.warn('Cursor MCP API 不可用，跳過自動註冊');
+            vscode.window.showWarningMessage('🔸 Cursor MCP API 不可用，請手動配置 MCP 服務器');
             return;
         }
 
-        const migrationInfo = await MigrationUtils.checkLegacyConfig();
-        
-        if (migrationInfo.hasLegacyConfig) {
-            console.log('[MCP Extension] Legacy config detected, showing migration notification');
-            await MigrationUtils.showMigrationNotification(migrationInfo);
-        }
+        // 使用 Cursor 官方 API 註冊 SSE 服務器
+        const serverConfig: vscode.cursor.mcp.RemoteServerConfig = {
+            name: 'vscode-commands',
+            server: {
+                url: serverInfo.url,
+                headers: {
+                    'User-Agent': 'VSCode Commands MCP Extension'
+                }
+            }
+        };
 
+        vscode.cursor.mcp.registerServer(serverConfig);
+        
+        console.log('✅ 已使用 Cursor MCP API 註冊服務器:', serverConfig);
+        
     } catch (error) {
-        console.warn('[MCP Extension] Migration check failed:', error);
+        console.error('使用 Cursor API 註冊 MCP 服務器失敗:', error);
+        vscode.window.showWarningMessage(`⚠️ MCP 服務器註冊失敗: ${error instanceof Error ? error.message : String(error)}`);
+        // 不要阻止服務器啟動
     }
 }
 
 /**
- * Extension 停用函數
- * 
- * 清理 MCP provider 資源
+ * 使用 Cursor 官方 MCP Extension API 取消註冊服務器
  */
-export function deactivate() {
-    console.log('[MCP Extension] 正在停用擴展...');
-    
-    if (mcpProvider) {
-        mcpProvider.dispose();
-        mcpProvider = undefined;
-        console.log('[MCP Extension] ✅ MCP Provider 已清理');
+async function unregisterFromCursorAPI(): Promise<void> {
+    try {
+        // 檢查 Cursor MCP API 是否可用
+        if (!vscode.cursor?.mcp?.unregisterServer) {
+            console.warn('Cursor MCP API 不可用，跳過自動取消註冊');
+            return;
+        }
+
+        vscode.cursor.mcp.unregisterServer('vscode-commands');
+        
+        console.log('✅ 已使用 Cursor MCP API 取消註冊服務器');
+        
+    } catch (error) {
+        console.error('使用 Cursor API 取消註冊 MCP 服務器失敗:', error);
+        // 不要阻止服務器停止
     }
-    
-    console.log('[MCP Extension] ✅ 擴展已停用');
 }
