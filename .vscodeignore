@@ -17,8 +17,14 @@ performance-*.json
 optimization-*.md
 performance-test-runner.js
 
-# Node modules (will be bundled)
+# Node modules (exclude most, but keep essential dependencies)
 node_modules/**
+# Include essential MCP dependencies for standalone server
+!node_modules/@modelcontextprotocol/**
+!node_modules/zod/**
+!node_modules/content-type/**
+!node_modules/raw-body/**
+!node_modules/safe-buffer/**
 
 # Git and other VCS files
 .git/**
