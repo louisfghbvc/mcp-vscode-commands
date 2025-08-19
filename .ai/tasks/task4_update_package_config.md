@@ -1,10 +1,11 @@
 ---
 id: 4
 title: "更新 Package Configuration"
-status: pending
+status: completed
 priority: high
 dependencies: [3]
 created: 2025-08-19T16:37:59Z
+completed: 2025-08-19T17:06:09Z
 ---
 
 # Task 4: 更新 Package Configuration
@@ -139,8 +140,79 @@ created: 2025-08-19T16:37:59Z
 
 ## Acceptance Criteria
 
-- [ ] package.json 更新完成且格式正確
-- [ ] 移除所有 HTTP 相關配置
-- [ ] 新命令和配置正確定義
-- [ ] Extension 能正常載入和運行
-- [ ] 版本號和元資料適當更新
+- [x] package.json 更新完成且格式正確
+- [x] 移除所有 HTTP 相關配置
+- [x] 新命令和配置正確定義
+- [x] Extension 能正常載入和運行
+- [x] 版本號和元資料適當更新
+
+## Implementation Summary
+
+### 已完成的配置更新:
+
+1. **版本升級和基本資訊** ✅
+   - 版本號: `0.1.3` → `0.2.0` (重大架構變更)
+   - 描述: 從 SSE 更新為 "Cursor MCP Extension API (Stdio)"
+   - DisplayName: 添加 "(Stdio)" 標識
+
+2. **Keywords 優化** ✅
+   - 移除過時關鍵字: `sse`, `server-sent-events`
+   - 添加新關鍵字: `stdio`, `standard-io`, `high-performance`, `zero-config`
+   - 保留核心關鍵字: `mcp`, `cursor-api`, `extension-api`
+
+3. **Configuration Schema 增強** ✅
+   - 保留 `autoStart` (向後相容)
+   - 保留 `logLevel` (日誌控制)
+   - 新增 `enableDiagnostics` (詳細診斷模式)
+   - 更新所有配置描述以反映 stdio 架構
+
+4. **Commands 結構確認** ✅
+   - 保持現代化命令: `restart`, `diagnostics`
+   - 添加 "MCP" 類別歸類
+   - 移除舊的 HTTP 相關命令
+
+### Extension.ts 功能增強:
+
+1. **智能配置管理** ✅
+   - 實作 `getExtensionConfig()` 函數
+   - 支援 `autoStart` 配置檢查
+   - 條件性服務器啟動
+
+2. **增強診斷系統** ✅
+   - 支援詳細診斷模式 (`enableDiagnostics`)
+   - 系統資訊監控 (平台、Node.js 版本)
+   - 記憶體使用詳細分析
+   - CPU 使用率計算
+
+3. **用戶體驗改善** ✅
+   - 智能診斷顯示 (簡化/詳細模式)
+   - 更好的配置反饋
+   - 清晰的狀態指示
+
+### 配置更新成果:
+
+```json
+// 主要配置變更
+{
+  "version": "0.2.0",
+  "description": "允許 AI 透過 Cursor MCP Extension API (Stdio) 執行 VSCode 命令 - 高效能、零配置",
+  "keywords": ["stdio", "high-performance", "zero-config", ...],
+  "configuration": {
+    "properties": {
+      "mcpVscodeCommands.enableDiagnostics": {
+        "type": "boolean",
+        "default": false,
+        "description": "啟用詳細的診斷和性能監控資訊"
+      }
+    }
+  }
+}
+```
+
+### 驗證結果:
+
+- ✅ JSON 格式驗證通過 (jsonlint)
+- ✅ TypeScript 編譯成功
+- ✅ 所有新配置選項正常工作
+- ✅ 向後相容性保持
+- ✅ Extension 啟動流程優化

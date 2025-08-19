@@ -2,22 +2,22 @@
 
 ## Cursor MCP Extension API 與 Stdio Transport 整合任務
 
-- [ ] **ID 1: 創建 Stdio-based MCP Server** (Priority: critical)
+- [x] **ID 1: 創建 Stdio-based MCP Server** (Priority: critical)
 > 實作新的 stdio 傳輸 MCP 服務器，取代現有的 SSE 實作
 
-- [ ] **ID 2: 整合 Cursor MCP Extension API** (Priority: critical)
+- [x] **ID 2: 整合 Cursor MCP Extension API** (Priority: critical)
 > Dependencies: 1
 > 實作 vscode.cursor.mcp.registerServer API 來自動註冊 stdio 服務器
 
-- [ ] **ID 3: 重構 Extension 架構** (Priority: high)
+- [x] **ID 3: 重構 Extension 架構** (Priority: high)
 > Dependencies: 1, 2
 > 更新 extension.ts 以使用新的 stdio 架構並移除 HTTP/SSE 邏輯
 
-- [ ] **ID 4: 更新 Package Configuration** (Priority: high)  
+- [x] **ID 4: 更新 Package Configuration** (Priority: high)  
 > Dependencies: 3
 > 更新 package.json 移除 HTTP 相關命令，添加新的 stdio 管理功能
 
-- [ ] **ID 5: 驗證工具相容性** (Priority: medium)
+- [x] **ID 5: 驗證工具相容性** (Priority: medium)
 > Dependencies: 1
 > 確保 VSCodeCommandsTools 與新的 stdio transport 完全相容
 

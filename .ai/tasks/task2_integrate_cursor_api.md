@@ -1,7 +1,7 @@
 ---
 id: 2
 title: "整合 Cursor MCP Extension API"
-status: pending
+status: completed
 priority: critical
 dependencies: [1]
 created: 2025-08-19T16:37:59Z

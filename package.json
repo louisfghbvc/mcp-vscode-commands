@@ -1,8 +1,8 @@
 {
   "name": "mcp-vscode-commands",
-  "displayName": "MCP VSCode Commands",
-  "description": "允許 AI 透過 Model Context Protocol (SSE) 執行 VSCode 命令 - Cursor API 整合、零配置",
-  "version": "0.1.3",
+  "displayName": "MCP VSCode Commands (Stdio)",
+  "description": "允許 AI 透過 Cursor MCP Extension API (Stdio) 執行 VSCode 命令 - 高效能、零配置",
+  "version": "0.2.0",
   "author": "louisfghbvc",
   "publisher": "louisfghbvc",
   "engines": {
@@ -18,12 +18,14 @@
     "ai",
     "cursor",
     "claude",
-    "sse",
-    "server-sent-events",
+    "stdio",
+    "standard-io",
+    "high-performance",
     "vscode-commands",
     "automation",
     "cursor-api",
-    "extension-api"
+    "extension-api",
+    "zero-config"
   ],
   "repository": {
     "type": "git",
@@ -36,31 +38,34 @@
   "contributes": {
     "commands": [
       {
-        "command": "mcp-vscode-commands.start",
-        "title": "Start MCP Server"
+        "command": "mcp-vscode-commands.restart",
+        "title": "Restart MCP Server",
+        "category": "MCP"
       },
       {
-        "command": "mcp-vscode-commands.stop",
-        "title": "Stop MCP Server"
-      },
-      {
-        "command": "mcp-vscode-commands.status",
-        "title": "Show MCP Server Status"
+        "command": "mcp-vscode-commands.diagnostics",
+        "title": "Show MCP Diagnostics",
+        "category": "MCP"
       }
     ],
     "configuration": {
-      "title": "MCP VSCode Commands",
+      "title": "MCP VSCode Commands (Stdio)",
       "properties": {
         "mcpVscodeCommands.autoStart": {
           "type": "boolean",
           "default": true,
-          "description": "擴展啟動時自動啟動 MCP 服務器"
+          "description": "擴展啟動時自動註冊 MCP Stdio 服務器（使用 Cursor Extension API）"
         },
         "mcpVscodeCommands.logLevel": {
           "type": "string",
           "enum": ["debug", "info", "warn", "error"],
           "default": "info",
-          "description": "日誌記錄級別"
+          "description": "MCP 服務器日誌記錄級別"
+        },
+        "mcpVscodeCommands.enableDiagnostics": {
+          "type": "boolean",
+          "default": false,
+          "description": "啟用詳細的診斷和性能監控資訊"
         }
       }
     }

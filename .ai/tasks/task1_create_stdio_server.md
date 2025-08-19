@@ -1,7 +1,7 @@
 ---
 id: 1
 title: "創建 Stdio-based MCP Server"
-status: pending
+status: completed
 priority: critical
 dependencies: []
 created: 2025-08-19T16:37:59Z
