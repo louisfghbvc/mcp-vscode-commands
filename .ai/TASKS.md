@@ -21,14 +21,14 @@
 > Dependencies: 1
 > 確保 VSCodeCommandsTools 與新的 stdio transport 完全相容
 
-- [ ] **ID 6: 效能測試與優化** (Priority: medium)
+- [x] **ID 6: 效能測試與優化** (Priority: medium)
 > Dependencies: 2, 3
 > 測試 stdio vs SSE 性能差異，驗證改善效果
 
-- [ ] **ID 7: 更新文檔與範例** (Priority: low)
+- [x] **ID 7: 更新文檔與範例** (Priority: low)
 > Dependencies: 4, 6
 > 更新所有文檔以反映新的 Cursor API + Stdio 架構
 
-- [ ] **ID 8: 端到端整合測試** (Priority: high)
+- [x] **ID 8: 端到端整合測試** (Priority: high)
 > Dependencies: 5, 6
 > 完整測試新架構的所有功能和性能指標

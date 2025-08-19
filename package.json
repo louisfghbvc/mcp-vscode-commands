@@ -76,7 +76,12 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "test:e2e": "npx tsx test/e2e/run-tests.ts",
+    "test:e2e:functional": "npx tsx test/e2e/run-tests.ts --mode functional",
+    "test:e2e:performance": "npx tsx test/e2e/run-tests.ts --mode performance",
+    "test:e2e:quick": "npx tsx test/e2e/run-tests.ts --mode quick",
+    "benchmark": "npx tsx test/e2e/run-tests.ts --mode performance"
   },
   "devDependencies": {
     "@types/vscode": "^1.74.0",
@@ -84,7 +89,8 @@
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
     "eslint": "^8.28.0",
-    "typescript": "^4.9.4"
+    "typescript": "^4.9.4",
+    "tsx": "^4.6.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.4.0",
