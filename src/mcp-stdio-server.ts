@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import { MCPServerConfig, CommandExecutionResult } from './types';
 import { VSCodeCommandsTools } from './tools/vscode-commands';
 import * as path from 'path';
-import { spawn, ChildProcess } from 'child_process';
+import * as net from 'net';
+// import { spawn, ChildProcess } from 'child_process'; // 不再需要獨立進程
 
 // Dynamic imports for ES modules
 let Server: any;
@@ -27,6 +28,8 @@ export class MCPStdioServer {
     private initialized: boolean = false;
     private extensionContext: vscode.ExtensionContext | undefined;
     private startTime: number = 0;
+    private bridgeServer: net.Server | null = null;
+    private bridgePort: number = 0; // 0 = auto-assign available port
 
     constructor(config?: MCPServerConfig, context?: vscode.ExtensionContext) {
         this.config = config || this.getDefaultConfig();
@@ -90,9 +93,13 @@ export class MCPStdioServer {
             this.initialized = true;
             this.startTime = Date.now();
             
+            // Start bridge server for Cursor integration
+            await this.startBridgeServer();
+            
             this.log('[MCP-Stdio] ✅ Server connected and ready');
             this.log('[MCP-Stdio] 🚀 High-performance stdio transport active');
             this.log('[MCP-Stdio] 📡 Direct VSCode API access enabled');
+            this.log('[MCP-Stdio] 🌉 Bridge server running on port', this.bridgePort);
             
         } catch (error) {
             console.error('[MCP-Stdio] ❌ Failed to start server:', error);
@@ -101,23 +108,17 @@ export class MCPStdioServer {
     }
 
     /**
-     * Create standalone stdio server process
-     * This method is used by the extension to launch the server as a separate process
+     * Create in-process stdio server for direct extension integration
+     * This server runs within the extension process and has full access to VS Code API
      */
-    static createStandaloneProcess(extensionPath: string): ChildProcess {
-        const serverPath = path.join(extensionPath, 'out', 'mcp-stdio-server-standalone.js');
-        
-        const serverProcess = spawn('node', [serverPath], {
-            stdio: ['pipe', 'pipe', 'pipe'],
-            env: {
-                ...process.env,
-                NODE_ENV: 'production',
-                VSCODE_COMMANDS_MCP: 'true',
-                EXTENSION_PATH: extensionPath
-            }
-        });
-
-        return serverProcess;
+    static createInProcessServer(context: vscode.ExtensionContext): MCPStdioServer {
+        // 創建預設配置
+        const config: MCPServerConfig = {
+            autoStart: true,
+            logLevel: 'info'
+        };
+        const server = new MCPStdioServer(config, context);
+        return server;
     }
 
     /**
@@ -126,22 +127,10 @@ export class MCPStdioServer {
     private setupErrorHandling(): void {
         if (!this.server) return;
 
+        // Simple error handling
         this.server.onerror = (error: Error) => {
             console.error('[MCP-Stdio] Server error:', error);
         };
-
-        // Handle process signals for graceful shutdown
-        process.on('SIGINT', () => {
-            this.log('[MCP-Stdio] Received SIGINT, shutting down gracefully...');
-            this.stop();
-            process.exit(0);
-        });
-
-        process.on('SIGTERM', () => {
-            this.log('[MCP-Stdio] Received SIGTERM, shutting down gracefully...');
-            this.stop();
-            process.exit(0);
-        });
     }
 
     /**
@@ -295,6 +284,12 @@ export class MCPStdioServer {
                 console.error('[MCP-Stdio] Error stopping server:', error);
             }
         }
+        
+        if (this.bridgeServer) {
+            this.bridgeServer.close();
+            this.bridgeServer = null;
+            this.log('[MCP-Stdio] 🛑 Bridge server stopped');
+        }
     }
 
     /**
@@ -334,10 +329,201 @@ export class MCPStdioServer {
     /**
      * Logging utility
      */
-    private log(message: string, data?: any): void {
-        if (this.config.logLevel === 'debug' || process.env.NODE_ENV === 'development') {
-            const timestamp = new Date().toISOString();
-            console.error(`${timestamp} ${message}`, data || '');
+    private log(message: string, ...args: any[]): void {
+        if (this.config.logLevel === 'debug' || this.config.logLevel === 'info') {
+            console.log(message, ...args);
+        }
+    }
+
+    /**
+     * Start bridge server for Cursor integration
+     */
+    private async startBridgeServer(): Promise<void> {
+        try {
+            this.bridgeServer = net.createServer((socket) => {
+                this.log('[MCP-Stdio] 🌉 Bridge client connected');
+                
+                // Handle bridge communication
+                let buffer = '';
+                
+                socket.on('data', (data) => {
+                    buffer += data.toString();
+                    
+                    // Process complete JSON-RPC messages
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || ''; // Keep incomplete line in buffer
+                    
+                    for (const line of lines) {
+                        if (line.trim()) {
+                            try {
+                                const message = JSON.parse(line);
+                                this.handleBridgeMessage(socket, message);
+                            } catch (error) {
+                                this.log('[MCP-Stdio] ❌ Invalid JSON from bridge:', error);
+                            }
+                        }
+                    }
+                });
+                
+                socket.on('end', () => {
+                    this.log('[MCP-Stdio] 🌉 Bridge client disconnected');
+                });
+                
+                socket.on('error', (error) => {
+                    this.log('[MCP-Stdio] ❌ Bridge socket error:', error);
+                });
+            });
+            
+            this.bridgeServer.listen(0, 'localhost', () => {
+                const address = this.bridgeServer?.address();
+                if (address && typeof address === 'object') {
+                    this.bridgePort = address.port;
+                    this.log('[MCP-Stdio] 🌉 Bridge server auto-assigned to port', this.bridgePort);
+                }
+            });
+            
+            this.bridgeServer.on('error', (error) => {
+                this.log('[MCP-Stdio] ❌ Bridge server error:', error);
+                // Auto-port assignment should prevent most conflicts
+            });
+            
+        } catch (error) {
+            this.log('[MCP-Stdio] ❌ Failed to start bridge server:', error);
+            // Continue without bridge - not critical for basic operation
+        }
+    }
+
+    /**
+     * Handle bridge message by forwarding to appropriate MCP handler
+     */
+    private async handleBridgeMessage(socket: net.Socket, message: any): Promise<void> {
+        try {
+            let response: any;
+            
+            // Handle different MCP request types
+            if (message.method === 'tools/list') {
+                response = await this.handleListTools();
+            } else if (message.method === 'tools/call') {
+                response = await this.handleCallTool(message.params);
+            } else {
+                response = {
+                    jsonrpc: '2.0',
+                    id: message.id,
+                    error: {
+                        code: -32601,
+                        message: 'Method not found'
+                    }
+                };
+            }
+            
+            // Add request ID to response
+            if (message.id) {
+                response.id = message.id;
+            }
+            
+            // Send response back through bridge
+            socket.write(JSON.stringify(response) + '\n');
+            
+        } catch (error) {
+            this.log('[MCP-Stdio] ❌ Error handling bridge message:', error);
+            
+            const errorResponse = {
+                jsonrpc: '2.0',
+                id: message.id,
+                error: {
+                    code: -32603,
+                    message: 'Internal error',
+                    data: error instanceof Error ? error.message : String(error)
+                }
+            };
+            
+            socket.write(JSON.stringify(errorResponse) + '\n');
+        }
+    }
+
+    /**
+     * Handle list tools request for bridge
+     */
+    private async handleListTools(): Promise<any> {
+        // Return available VS Code command tools
+        return {
+            jsonrpc: '2.0',
+            result: {
+                tools: [
+                    {
+                        name: 'vscode.executeCommand',
+                        description: '執行指定的 VSCode 命令',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {
+                                command: {
+                                    type: 'string',
+                                    description: '要執行的 VSCode 命令 ID'
+                                },
+                                args: {
+                                    type: 'array',
+                                    description: '命令參數列表',
+                                    items: {}
+                                }
+                            },
+                            required: ['command']
+                        }
+                    },
+                    {
+                        name: 'vscode.listCommands',
+                        description: '列出所有可用的 VSCode 命令',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {
+                                filter: {
+                                    type: 'string',
+                                    description: '可選的命令過濾器'
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
+        };
+    }
+
+    /**
+     * Get the current bridge port (for extension integration)
+     */
+    getBridgePort(): number {
+        return this.bridgePort;
+    }
+
+    /**
+     * Handle call tool request for bridge
+     */
+    private async handleCallTool(params: any): Promise<any> {
+        try {
+            let result: any;
+            
+            if (params.name === 'vscode.executeCommand') {
+                const { command, args } = params.arguments || {};
+                result = await this.tools.executeCommand(command, args || []);
+            } else if (params.name === 'vscode.listCommands') {
+                const { filter } = params.arguments || {};
+                result = await this.tools.listCommands(filter);
+            } else {
+                throw new Error(`未知的工具: ${params.name}`);
+            }
+            
+            return {
+                jsonrpc: '2.0',
+                result: {
+                    content: [
+                        {
+                            type: 'text',
+                            text: typeof result === 'string' ? result : JSON.stringify(result, null, 2)
+                        }
+                    ]
+                }
+            };
+        } catch (error) {
+            throw new Error(`執行工具失敗: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 

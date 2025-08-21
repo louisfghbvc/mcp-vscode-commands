@@ -3,6 +3,7 @@ import * as path from 'path';
 import { MCPStdioServer } from './mcp-stdio-server';
 import { MCPServerConfig } from './types';
 
+
 // Cursor MCP Extension API 類型定義
 declare module 'vscode' {
     export namespace cursor {
@@ -28,6 +29,7 @@ export function activate(context: vscode.ExtensionContext) {
     console.log('[MCP Extension] 🚀 啟動 Cursor MCP Stdio 擴展...');
     
     try {
+
         // 註冊管理命令
         registerManagementCommands(context);
         
@@ -70,110 +72,249 @@ export function deactivate() {
 }
 
 /**
- * 使用 Cursor MCP Extension API 註冊 stdio 服務器
+ * 啟動內嵌式 MCP 服務器（直接在 extension 內運行）
  */
-function registerStdioServer(context: vscode.ExtensionContext): void {
+async function registerStdioServer(context: vscode.ExtensionContext): Promise<void> {
     try {
-        // 檢查 Cursor MCP API 是否可用
-        if (!vscode.cursor?.mcp?.registerServer) {
-            console.warn('[MCP Extension] Cursor MCP API 不可用，嘗試回退到內建模式');
-            
-            // 回退到內建模式 - 在 extension 環境中直接運行 stdio 服務器
-            startInternalStdioServer(context);
-            
-            console.log('[MCP Extension] 🔸 Cursor API 不可用，已啟用內建回退模式');
-            return;
-        }
-
-        // 使用 Cursor 官方 API 註冊 stdio 服務器
-        const serverConfig: vscode.cursor.mcp.StdioServerConfig = {
-            name: 'vscode-commands',
-            server: {
-                command: 'node',
-                args: [path.join(context.extensionPath, 'out', 'mcp-stdio-server-standalone.js')],
-                env: {
-                    'NODE_ENV': 'production',
-                    'VSCODE_COMMANDS_MCP': 'true',
-                    'EXTENSION_PATH': context.extensionPath
-                }
-            }
-        };
-
-        vscode.cursor.mcp.registerServer(serverConfig);
+        // 創建內嵌式 MCP 服務器，確保能夠訪問 VS Code API
+        mcpStdioServer = MCPStdioServer.createInProcessServer(context);
         
-        console.log('[MCP Extension] ✅ 已使用 Cursor MCP API 註冊 stdio 服務器:', serverConfig);
-        
-        console.log('[MCP Extension] 🎉 Stdio MCP 服務器已自動註冊到 Cursor');
-        
-    } catch (error) {
-        console.error('[MCP Extension] 使用 Cursor API 註冊失敗:', error);
-        
-        // 嘗試回退到內建模式
-        try {
-            startInternalStdioServer(context);
-            vscode.window.showWarningMessage(
-                `⚠️ Cursor API 註冊失敗，已啟用內建模式。\n錯誤: ${error instanceof Error ? error.message : String(error)}`
-            );
-        } catch (fallbackError) {
-            vscode.window.showErrorMessage(
-                `❌ MCP 服務器啟動失敗: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`
-            );
-        }
-    }
-}
-
-/**
- * 啟動內建 stdio 服務器（回退模式）
- */
-async function startInternalStdioServer(context: vscode.ExtensionContext): Promise<void> {
-    try {
-        if (mcpStdioServer) {
-            console.log('[MCP Extension] Stdio 服務器已在運行中');
-            return;
-        }
-
-        const config = getConfig();
-        mcpStdioServer = new MCPStdioServer(config, context);
-        
-        // 在 extension 環境中啟動 stdio 服務器
+        // 啟動服務器
         await mcpStdioServer.start();
         
-        console.log('[MCP Extension] ✅ 內建 Stdio 服務器已啟動');
+        console.log('[MCP Extension] ✅ 內嵌式 MCP 服務器已啟動，可完整訪問 VS Code API');
+        
+        // 等待橋接服務器啟動並獲取端口
+        const bridgePort = await waitForBridgePort(mcpStdioServer);
+        
+        // 創建橋接程序以供 Cursor 發現和使用
+        await createStdioBridge(context, bridgePort);
+        
+        vscode.window.showInformationMessage('🎉 MCP VSCode Commands 已啟動 (內嵌模式 + Cursor 橋接)');
         
     } catch (error) {
-        console.error('[MCP Extension] 內建服務器啟動失敗:', error);
+        console.error('[MCP Extension] MCP 服務器啟動失敗:', error);
+        vscode.window.showErrorMessage(
+            `❌ MCP 服務器啟動失敗: ${error instanceof Error ? error.message : String(error)}`
+        );
         throw error;
     }
 }
 
+// 移除不必要的回退模式函數 - 現在統一使用 registerStdioServer 的內嵌模式
+
 /**
- * 取消註冊 stdio 服務器
+ * 停止內嵌式 MCP 服務器
  */
 function unregisterStdioServer(): void {
     try {
-        // 檢查 Cursor MCP API 是否可用
-        if (!vscode.cursor?.mcp?.unregisterServer) {
-            console.warn('[MCP Extension] Cursor MCP API 不可用，跳過自動取消註冊');
-            return;
+        if (mcpStdioServer) {
+            mcpStdioServer.stop();
+            mcpStdioServer = undefined;
+            console.log('[MCP Extension] ✅ 內嵌式 MCP 服務器已停止');
         }
-
-        vscode.cursor.mcp.unregisterServer('vscode-commands');
-        
-        console.log('[MCP Extension] ✅ 已使用 Cursor MCP API 取消註冊服務器');
-        
     } catch (error) {
-        console.error('[MCP Extension] 使用 Cursor API 取消註冊失敗:', error);
+        console.error('[MCP Extension] 停止 MCP 服務器失敗:', error);
         // 不要阻止擴展停用
     }
 }
 
-function getConfig(): MCPServerConfig {
-    const vscodeConfig = vscode.workspace.getConfiguration('mcpVscodeCommands');
-    return {
-        autoStart: vscodeConfig.get<boolean>('autoStart', true),
-        logLevel: vscodeConfig.get<'debug' | 'info' | 'warn' | 'error'>('logLevel', 'info')
-    };
+/**
+ * 創建 stdio 橋接程序以供 Cursor 發現和使用
+ */
+async function createStdioBridge(context: vscode.ExtensionContext, bridgePort: number): Promise<void> {
+    try {
+        const bridgeScript = `#!/usr/bin/env node
+
+/**
+ * Stdio Bridge for MCP VSCode Commands
+ * 
+ * This lightweight bridge connects Cursor's MCP API to the
+ * MCP server running within the VS Code extension.
+ */
+
+const net = require('net');
+
+// Bridge configuration - port will be passed from server
+const BRIDGE_PORT = bridgePort; // Auto-assigned port from server
+const TIMEOUT = 10000; // 10 seconds timeout
+const RETRY_ATTEMPTS = 5;
+const RETRY_DELAY = 1000; // 1 second
+
+class StdioBridge {
+    constructor() {
+        this.client = null;
+        this.isConnected = false;
+        this.retryCount = 0;
+        this.setupStdioForwarding();
+    }
+
+    async setupStdioForwarding() {
+        await this.connectWithRetry();
+    }
+
+    async connectWithRetry() {
+        while (this.retryCount < RETRY_ATTEMPTS && !this.isConnected) {
+            try {
+                await this.connectToExtension();
+                break;
+            } catch (error) {
+                this.retryCount++;
+                if (this.retryCount >= RETRY_ATTEMPTS) {
+                    console.error('[Bridge] ❌ Failed to connect after ' + RETRY_ATTEMPTS + ' attempts');
+                    process.exit(1);
+                } else {
+                    console.error('[Bridge] ⚠️ Connection attempt ' + this.retryCount + ' failed, retrying...');
+                    await this.sleep(RETRY_DELAY);
+                }
+            }
+        }
+    }
+
+    connectToExtension() {
+        return new Promise((resolve, reject) => {
+            this.client = net.createConnection(BRIDGE_PORT, 'localhost');
+            
+            this.client.on('connect', () => {
+                console.error('[Bridge] ✅ Connected to extension MCP server');
+                this.isConnected = true;
+                this.setupBidirectionalForwarding();
+                resolve();
+            });
+            
+            this.client.on('error', (error) => {
+                reject(error);
+            });
+            
+            this.client.on('close', () => {
+                if (this.isConnected) {
+                    console.error('[Bridge] Connection closed');
+                    process.exit(0);
+                }
+            });
+            
+            setTimeout(() => {
+                if (!this.isConnected) {
+                    reject(new Error('Connection timeout'));
+                }
+            }, TIMEOUT);
+        });
+    }
+
+    setupBidirectionalForwarding() {
+        if (!this.client) return;
+
+        // Forward stdin to extension
+        process.stdin.pipe(this.client);
+        
+        // Forward extension responses to stdout
+        this.client.pipe(process.stdout);
+        
+        // Handle termination - only for bridge script, not extension
+        process.stdin.on('end', () => {
+            process.exit(0);
+        });
+        
+        process.on('SIGTERM', () => {
+            this.cleanup();
+            process.exit(0);
+        });
+        
+        process.on('SIGINT', () => {
+            this.cleanup();
+            process.exit(0);
+        });
+    }
+
+    cleanup() {
+        if (this.client) {
+            this.client.destroy();
+            this.client = null;
+        }
+    }
+
+    sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
 }
+
+// Start the bridge
+new StdioBridge();
+`;
+
+        const bridgePath = path.join(context.extensionPath, 'out', 'stdio-bridge.js');
+        
+        // 確保目錄存在
+        const outDir = path.dirname(bridgePath);
+        if (!require('fs').existsSync(outDir)) {
+            require('fs').mkdirSync(outDir, { recursive: true });
+        }
+        
+        // 寫入橋接腳本
+        require('fs').writeFileSync(bridgePath, bridgeScript);
+        
+        console.log('[MCP Extension] 📁 Stdio 橋接程序已創建:', bridgePath);
+        console.log('[MCP Extension] 🌉 橋接端口:', bridgePort);
+        
+        // 嘗試使用 Cursor API 註冊橋接程序
+        if (vscode.cursor?.mcp?.registerServer) {
+            try {
+                const serverConfig: vscode.cursor.mcp.StdioServerConfig = {
+                    name: 'vscode-commands',
+                    server: {
+                        command: 'node',
+                        args: [bridgePath],
+                        env: {
+                            'NODE_ENV': 'production',
+                            'VSCODE_COMMANDS_MCP': 'true',
+                            'EXTENSION_PATH': context.extensionPath
+                        }
+                    }
+                };
+
+                vscode.cursor.mcp.registerServer(serverConfig);
+                console.log('[MCP Extension] 🌉 已透過 Cursor API 註冊橋接程序');
+                
+            } catch (cursorError) {
+                console.warn('[MCP Extension] ⚠️ Cursor API 註冊失敗，但內嵌服務器仍正常運行:', cursorError);
+            }
+        } else {
+            console.log('[MCP Extension] 💡 Cursor API 不可用，請手動配置 MCP server:');
+            console.log('[MCP Extension] 📋 配置範例:');
+            console.log('  {');
+            console.log('    "name": "vscode-commands",');
+            console.log('    "command": "node",');
+            console.log('    "args": ["' + bridgePath + '"]');
+            console.log('  }');
+        }
+        
+    } catch (error) {
+        console.error('[MCP Extension] ❌ 創建橋接程序失敗:', error);
+        // 繼續運行，橋接不是核心功能
+    }
+}
+
+/**
+ * 等待橋接服務器啟動並獲取自動分配的端口
+ */
+async function waitForBridgePort(mcpServer: MCPStdioServer, maxWaitMs: number = 5000): Promise<number> {
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < maxWaitMs) {
+        const port = mcpServer.getBridgePort();
+        if (port > 0) {
+            console.log('[MCP Extension] ✅ 橋接端口已分配:', port);
+            return port;
+        }
+        
+        // 等待 100ms 後重試
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    throw new Error('等待橋接端口分配超時');
+}
+
+// 移除舊的 getConfig 函數，使用 getExtensionConfig 代替
 
 /**
  * 獲取擴展配置
@@ -265,10 +406,9 @@ function getDiagnostics(enableDetailedDiagnostics: boolean = false): string {
     }
     
     // 配置資訊
-    const config = getConfig();
     const extensionConfig = getExtensionConfig();
     diagnostics.push(`⚙️  自動啟動: ${extensionConfig.autoStart ? '✅' : '❌'}`);
-    diagnostics.push(`📝 日誌等級: ${config.logLevel}`);
+    diagnostics.push(`📝 日誌等級: info`); // 預設日誌等級
     diagnostics.push(`🔍 詳細診斷: ${extensionConfig.enableDiagnostics ? '✅' : '❌'}`);
     
     // 如果啟用詳細診斷，添加更多技術資訊
