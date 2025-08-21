@@ -28,27 +28,33 @@ let mcpStdioServer: MCPStdioServer | undefined;
 export function activate(context: vscode.ExtensionContext) {
     console.log('[MCP Extension] 🚀 啟動 Cursor MCP Stdio 擴展...');
     
-    try {
-
-        // 註冊管理命令
-        registerManagementCommands(context);
-        
-        // 檢查是否應該自動啟動
-        const extensionConfig = getExtensionConfig();
-        if (extensionConfig.autoStart) {
-            // 自動註冊 MCP Stdio 服務器
-            registerStdioServer(context);
-        } else {
-            console.log('[MCP Extension] 🔸 自動啟動已停用，請手動使用重啟命令啟動服務器');
+    // 檢查是否在橋接模式下運行
+    if (process.env.STDIO_BRIDGE_MODE === 'true') {
+        console.log('[MCP Extension] 🌉 橋接模式啟動 - 直接啟動 MCP 服務器');
+        startMCPServerDirectly(context);
+    } else {
+        console.log('[MCP Extension] 🔌 正常模式啟動 - 創建橋接程序');
+        try {
+            // 註冊管理命令
+            registerManagementCommands(context);
+            
+            // 檢查是否應該自動啟動
+            const extensionConfig = getExtensionConfig();
+            if (extensionConfig.autoStart) {
+                // 自動註冊 MCP Stdio 服務器
+                registerStdioServer(context);
+            } else {
+                console.log('[MCP Extension] 🔸 自動啟動已停用，請手動使用重啟命令啟動服務器');
+            }
+            
+            console.log('[MCP Extension] ✅ 擴展啟動完成');
+            
+        } catch (error) {
+            console.error('[MCP Extension] ❌ 擴展啟動失敗:', error);
+            vscode.window.showErrorMessage(
+                `MCP 擴展啟動失敗: ${error instanceof Error ? error.message : String(error)}`
+            );
         }
-        
-        console.log('[MCP Extension] ✅ 擴展啟動完成');
-        
-    } catch (error) {
-        console.error('[MCP Extension] ❌ 擴展啟動失敗:', error);
-        vscode.window.showErrorMessage(
-            `MCP 擴展啟動失敗: ${error instanceof Error ? error.message : String(error)}`
-        );
     }
 }
 
@@ -68,6 +74,31 @@ export function deactivate() {
         console.log('[MCP Extension] ✅ 擴展已停用');
     } catch (error) {
         console.error('[MCP Extension] 停用過程中發生錯誤:', error);
+    }
+}
+
+/**
+ * 橋接模式下直接啟動 MCP 服務器（不創建橋接程序）
+ */
+async function startMCPServerDirectly(context: vscode.ExtensionContext): Promise<void> {
+    try {
+        // 創建內嵌式 MCP 服務器，確保能夠訪問 VS Code API
+        mcpStdioServer = MCPStdioServer.createInProcessServer(context);
+        
+        // 啟動服務器
+        await mcpStdioServer.start();
+        
+        console.log('[MCP Extension] ✅ 橋接模式 MCP 服務器已啟動，直接處理 stdio 通信');
+        
+        // 在橋接模式下，不需要創建橋接程序，直接使用 stdio
+        vscode.window.showInformationMessage('🎉 MCP VSCode Commands 橋接模式已啟動');
+        
+    } catch (error) {
+        console.error('[MCP Extension] 橋接模式 MCP 服務器啟動失敗:', error);
+        vscode.window.showErrorMessage(
+            `❌ 橋接模式 MCP 服務器啟動失敗: ${error instanceof Error ? error.message : String(error)}`
+        );
+        throw error;
     }
 }
 
@@ -131,110 +162,86 @@ async function createStdioBridge(context: vscode.ExtensionContext, bridgePort: n
  * 
  * This lightweight bridge connects Cursor's MCP API to the
  * MCP server running within the VS Code extension.
+ * 
+ * Instead of TCP, this bridge directly forwards stdio to the extension's
+ * MCP server, which runs in-process and handles the MCP protocol.
  */
 
-const net = require('net');
+const { spawn } = require('child_process');
+const path = require('path');
 
-// Bridge configuration - port will be passed from server
-const BRIDGE_PORT = bridgePort; // Auto-assigned port from server
-const TIMEOUT = 10000; // 10 seconds timeout
-const RETRY_ATTEMPTS = 5;
-const RETRY_DELAY = 1000; // 1 second
+// Get extension path from environment
+const EXTENSION_PATH = process.env.EXTENSION_PATH;
+if (!EXTENSION_PATH) {
+    console.error('[Bridge] ❌ EXTENSION_PATH environment variable not set');
+    process.exit(1);
+}
+
+// Path to the extension's main JavaScript file
+const extensionMainPath = path.join(EXTENSION_PATH, 'out', 'extension.js');
 
 class StdioBridge {
     constructor() {
-        this.client = null;
-        this.isConnected = false;
-        this.retryCount = 0;
+        this.extensionProcess = null;
         this.setupStdioForwarding();
     }
 
-    async setupStdioForwarding() {
-        await this.connectWithRetry();
-    }
-
-    async connectWithRetry() {
-        while (this.retryCount < RETRY_ATTEMPTS && !this.isConnected) {
-            try {
-                await this.connectToExtension();
-                break;
-            } catch (error) {
-                this.retryCount++;
-                if (this.retryCount >= RETRY_ATTEMPTS) {
-                    console.error('[Bridge] ❌ Failed to connect after ' + RETRY_ATTEMPTS + ' attempts');
-                    process.exit(1);
-                } else {
-                    console.error('[Bridge] ⚠️ Connection attempt ' + this.retryCount + ' failed, retrying...');
-                    await this.sleep(RETRY_DELAY);
+    setupStdioForwarding() {
+        try {
+            // Spawn the extension process with stdio forwarding
+            this.extensionProcess = spawn('node', [extensionMainPath], {
+                stdio: ['pipe', 'pipe', 'pipe'],
+                env: {
+                    ...process.env,
+                    'VSCODE_COMMANDS_MCP': 'true',
+                    'STDIO_BRIDGE_MODE': 'true'
                 }
-            }
+            });
+
+            // Forward stdin to extension
+            process.stdin.pipe(this.extensionProcess.stdin);
+            
+            // Forward extension stdout to our stdout
+            this.extensionProcess.stdout.pipe(process.stdout);
+            
+            // Forward extension stderr to our stderr
+            this.extensionProcess.stderr.pipe(process.stderr);
+
+            // Handle extension process events
+            this.extensionProcess.on('error', (error) => {
+                console.error('[Bridge] ❌ Extension process error:', error.message);
+                process.exit(1);
+            });
+
+            this.extensionProcess.on('exit', (code) => {
+                console.error('[Bridge] Extension process exited with code:', code);
+                process.exit(code || 0);
+            });
+
+            // Handle our process termination
+            process.on('SIGTERM', () => {
+                this.cleanup();
+                process.exit(0);
+            });
+            
+            process.on('SIGINT', () => {
+                this.cleanup();
+                process.exit(0);
+            });
+
+            console.error('[Bridge] ✅ Stdio bridge established with extension');
+            
+        } catch (error) {
+            console.error('[Bridge] ❌ Failed to setup stdio bridge:', error.message);
+            process.exit(1);
         }
-    }
-
-    connectToExtension() {
-        return new Promise((resolve, reject) => {
-            this.client = net.createConnection(BRIDGE_PORT, 'localhost');
-            
-            this.client.on('connect', () => {
-                console.error('[Bridge] ✅ Connected to extension MCP server');
-                this.isConnected = true;
-                this.setupBidirectionalForwarding();
-                resolve();
-            });
-            
-            this.client.on('error', (error) => {
-                reject(error);
-            });
-            
-            this.client.on('close', () => {
-                if (this.isConnected) {
-                    console.error('[Bridge] Connection closed');
-                    process.exit(0);
-                }
-            });
-            
-            setTimeout(() => {
-                if (!this.isConnected) {
-                    reject(new Error('Connection timeout'));
-                }
-            }, TIMEOUT);
-        });
-    }
-
-    setupBidirectionalForwarding() {
-        if (!this.client) return;
-
-        // Forward stdin to extension
-        process.stdin.pipe(this.client);
-        
-        // Forward extension responses to stdout
-        this.client.pipe(process.stdout);
-        
-        // Handle termination - only for bridge script, not extension
-        process.stdin.on('end', () => {
-            process.exit(0);
-        });
-        
-        process.on('SIGTERM', () => {
-            this.cleanup();
-            process.exit(0);
-        });
-        
-        process.on('SIGINT', () => {
-            this.cleanup();
-            process.exit(0);
-        });
     }
 
     cleanup() {
-        if (this.client) {
-            this.client.destroy();
-            this.client = null;
+        if (this.extensionProcess) {
+            this.extensionProcess.kill();
+            this.extensionProcess = null;
         }
-    }
-
-    sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
 

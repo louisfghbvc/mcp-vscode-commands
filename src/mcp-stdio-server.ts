@@ -93,13 +93,17 @@ export class MCPStdioServer {
             this.initialized = true;
             this.startTime = Date.now();
             
-            // Start bridge server for Cursor integration
-            await this.startBridgeServer();
+            // Start bridge server for Cursor integration (only in normal mode)
+            if (process.env.STDIO_BRIDGE_MODE !== 'true') {
+                await this.startBridgeServer();
+                this.log('[MCP-Stdio] 🌉 Bridge server running on port', this.bridgePort);
+            } else {
+                this.log('[MCP-Stdio] 🌉 Bridge mode - skipping TCP bridge server');
+            }
             
             this.log('[MCP-Stdio] ✅ Server connected and ready');
             this.log('[MCP-Stdio] 🚀 High-performance stdio transport active');
             this.log('[MCP-Stdio] 📡 Direct VSCode API access enabled');
-            this.log('[MCP-Stdio] 🌉 Bridge server running on port', this.bridgePort);
             
         } catch (error) {
             console.error('[MCP-Stdio] ❌ Failed to start server:', error);

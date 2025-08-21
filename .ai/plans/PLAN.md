@@ -268,3 +268,24 @@ export function activate(context: vscode.ExtensionContext) {
 ```
 
 這個新計劃將提供更好的性能、更簡潔的架構，並充分利用 Cursor 官方的 MCP Extension API。
+
+## 11. 未來發展方向
+
+### 11.1 WebSocket 架構重構
+
+為了進一步提升系統的穩定性和可維護性，我們計劃進行架構重構，從當前的 TCP 橋接模式轉換為 WebSocket 通信模式。
+
+**新架構特點：**
+- **進程分離**: MCP server 作為獨立進程運行，提供更好的錯誤隔離
+- **WebSocket 通信**: 使用標準的 WebSocket 協議進行 Extension 與 MCP server 的通信
+- **增強穩定性**: 更好的連接管理和錯誤恢復機制
+- **擴展性**: 為未來功能擴展提供堅實的基礎
+
+**詳細計劃**: 請參考 [WebSocket MCP 架構重構計劃](features/websocket-mcp-refactor-plan.md)
+
+### 11.2 架構演進路線圖
+
+1. **Phase 1**: 完成當前的 stdio + Cursor API 整合 ✅
+2. **Phase 2**: WebSocket 架構重構和實現 🔄
+3. **Phase 3**: 性能優化和功能擴展 📈
+4. **Phase 4**: 企業級功能和部署選項 🏢

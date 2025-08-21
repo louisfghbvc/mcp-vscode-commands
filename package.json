@@ -58,7 +58,12 @@
         },
         "mcpVscodeCommands.logLevel": {
           "type": "string",
-          "enum": ["debug", "info", "warn", "error"],
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
           "default": "info",
           "description": "MCP 服務器日誌記錄級別"
         },
@@ -84,16 +89,18 @@
     "benchmark": "npx tsx test/e2e/run-tests.ts --mode performance"
   },
   "devDependencies": {
-    "@types/vscode": "^1.74.0",
     "@types/node": "^18.x",
+    "@types/vscode": "^1.74.0",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
     "eslint": "^8.28.0",
-    "typescript": "^4.9.4",
-    "tsx": "^4.6.0"
+    "tsx": "^4.6.0",
+    "typescript": "^4.9.4"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.4.0",
+    "@types/ws": "^8.18.1",
+    "ws": "^8.18.3",
     "zod": "^3.22.4"
   }
 }
