@@ -35,7 +35,7 @@
 
 ## WebSocket MCP 架構重構任務 🔄
 
-- [ ] **ID 9: WebSocket 架構設計** (Priority: critical)
+- [✅] **ID 9: WebSocket 架構設計** (Priority: critical) [fully_implemented]
 > 設計新的 WebSocket MCP 架構，從 TCP 橋接模式轉換為 WebSocket 通信模式
 
 - [ ] **ID 10: WebSocket Extension Server 實現** (Priority: critical)
