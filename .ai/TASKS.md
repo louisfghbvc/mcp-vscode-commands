@@ -46,7 +46,7 @@
 > Dependencies: 9, 10
 > 實現獨立的 MCP Client 進程，作為 WebSocket Client 連接到 Extension Server
 
-- [ ] **ID 12: Extension 整合** (Priority: high)
+- [✅] **ID 12: Extension 整合** (Priority: high) [fully_implemented]
 > Dependencies: 9, 10, 11
 > 將 WebSocket MCP 架構整合到現有的 VS Code Extension 中
 

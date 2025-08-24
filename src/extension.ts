@@ -2,7 +2,10 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { MCPStdioServer } from './mcp-stdio-server';
 import { MCPServerConfig } from './types';
-
+import { WebSocketMCPServerExtension } from './websocket/websocket-mcp-server-extension';
+import { MCPClientLauncher } from './websocket/mcp-client-launcher';
+import { WebSocketDiagnostics } from './websocket/diagnostics/websocket-diagnostics';
+import { ConnectionManager } from './websocket/connection-manager';
 
 // Cursor MCP Extension API 類型定義
 declare module 'vscode' {
@@ -24,9 +27,13 @@ declare module 'vscode' {
 }
 
 let mcpStdioServer: MCPStdioServer | undefined;
+let websocketMCPServer: WebSocketMCPServerExtension | undefined;
+let mcpClientLauncher: MCPClientLauncher | undefined;
+let websocketDiagnostics: WebSocketDiagnostics | undefined;
+let connectionManager: ConnectionManager | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('[MCP Extension] 🚀 啟動 Cursor MCP Stdio 擴展...');
+    console.log('[MCP Extension] 🚀 啟動 Cursor MCP 擴展 (Stdio + WebSocket)...');
     
     // 檢查是否在橋接模式下運行
     if (process.env.STDIO_BRIDGE_MODE === 'true') {
@@ -40,6 +47,12 @@ export function activate(context: vscode.ExtensionContext) {
             
             // 檢查是否應該自動啟動
             const extensionConfig = getExtensionConfig();
+            
+            // 啟動 WebSocket MCP 架構（如果啟用）
+            if (extensionConfig.websocketAutoStart) {
+                startWebSocketMCPServer(context);
+            }
+            
             if (extensionConfig.autoStart) {
                 // 自動註冊 MCP Stdio 服務器
                 registerStdioServer(context);
@@ -62,6 +75,15 @@ export function deactivate() {
     console.log('[MCP Extension] 正在停用擴展...');
     
     try {
+        // 停止 WebSocket MCP 服務器
+        stopWebSocketMCPServer();
+        
+        // 停止 MCP Client 啟動器
+        if (mcpClientLauncher) {
+            mcpClientLauncher.dispose();
+            mcpClientLauncher = undefined;
+        }
+        
         // 取消註冊 MCP 服務器
         unregisterStdioServer();
         
@@ -71,9 +93,113 @@ export function deactivate() {
             mcpStdioServer = undefined;
         }
         
+        // 清理 WebSocket 診斷
+        if (websocketDiagnostics) {
+            websocketDiagnostics.dispose();
+            websocketDiagnostics = undefined;
+        }
+        
+        // 清理連接管理器
+        if (connectionManager) {
+            connectionManager.dispose();
+            connectionManager = undefined;
+        }
+        
         console.log('[MCP Extension] ✅ 擴展已停用');
     } catch (error) {
         console.error('[MCP Extension] 停用過程中發生錯誤:', error);
+    }
+}
+
+/**
+ * 啟動 WebSocket MCP 服務器
+ */
+async function startWebSocketMCPServer(context: vscode.ExtensionContext): Promise<void> {
+    try {
+        console.log('[MCP Extension] 🌐 啟動 WebSocket MCP 服務器...');
+        
+        // 獲取配置
+        const config = getExtensionConfig();
+        const websocketConfig: MCPServerConfig = {
+            name: 'WebSocket MCP Server',
+            version: '1.0.0',
+            tools: ['vscode-commands'],
+            logLevel: config.logLevel as 'debug' | 'info' | 'warn' | 'error',
+            autoStart: true
+        };
+        
+        // 創建連接管理器
+        connectionManager = new ConnectionManager();
+        
+        // 創建 WebSocket MCP 服務器
+        websocketMCPServer = new WebSocketMCPServerExtension(
+            context,
+            websocketConfig,
+            config.websocketPort
+        );
+        
+        // 啟動服務器
+        await websocketMCPServer.start();
+        
+        // 創建診斷系統
+        websocketDiagnostics = new WebSocketDiagnostics(
+            websocketMCPServer,
+            connectionManager
+        );
+        
+        // 創建 MCP Client 啟動器
+        mcpClientLauncher = new MCPClientLauncher(
+            'out/websocket/websocket-mcp-client.js',
+            `ws://localhost:${config.websocketPort}`
+        );
+        
+        console.log('[MCP Extension] ✅ WebSocket MCP 服務器已啟動');
+        vscode.window.showInformationMessage('🌐 WebSocket MCP 服務器已啟動');
+        
+    } catch (error) {
+        console.error('[MCP Extension] ❌ WebSocket MCP 服務器啟動失敗:', error);
+        vscode.window.showErrorMessage(
+            `WebSocket MCP 服務器啟動失敗: ${error instanceof Error ? error.message : String(error)}`
+        );
+    }
+}
+
+/**
+ * 停止 WebSocket MCP 服務器
+ */
+async function stopWebSocketMCPServer(): Promise<void> {
+    try {
+        if (websocketMCPServer) {
+            await websocketMCPServer.stop();
+            websocketMCPServer = undefined;
+            console.log('[MCP Extension] ✅ WebSocket MCP 服務器已停止');
+        }
+    } catch (error) {
+        console.error('[MCP Extension] 停止 WebSocket MCP 服務器失敗:', error);
+    }
+}
+
+/**
+ * 重啟 WebSocket MCP 服務器
+ */
+async function restartWebSocketMCPServer(context: vscode.ExtensionContext): Promise<void> {
+    try {
+        console.log('[MCP Extension] 🔄 重啟 WebSocket MCP 服務器...');
+        
+        // 停止現有服務器
+        await stopWebSocketMCPServer();
+        
+        // 等待一下
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // 重新啟動
+        await startWebSocketMCPServer(context);
+        
+        vscode.window.showInformationMessage('✅ WebSocket MCP 服務器已重啟');
+        
+    } catch (error) {
+        console.error('[MCP Extension] 重啟 WebSocket MCP 服務器失敗:', error);
+        vscode.window.showErrorMessage(`重啟 WebSocket MCP 服務器失敗: ${error instanceof Error ? error.message : String(error)}`);
     }
 }
 
@@ -326,11 +452,14 @@ async function waitForBridgePort(mcpServer: MCPStdioServer, maxWaitMs: number = 
 /**
  * 獲取擴展配置
  */
-function getExtensionConfig(): { autoStart: boolean; enableDiagnostics: boolean } {
+function getExtensionConfig(): { autoStart: boolean; enableDiagnostics: boolean; websocketAutoStart: boolean; websocketPort: number; logLevel: 'debug' | 'info' | 'warn' | 'error' } {
     const vscodeConfig = vscode.workspace.getConfiguration('mcpVscodeCommands');
     return {
         autoStart: vscodeConfig.get<boolean>('autoStart', true),
-        enableDiagnostics: vscodeConfig.get<boolean>('enableDiagnostics', false)
+        enableDiagnostics: vscodeConfig.get<boolean>('enableDiagnostics', false),
+        websocketAutoStart: vscodeConfig.get<boolean>('websocketAutoStart', false),
+        websocketPort: vscodeConfig.get<number>('websocketPort', 8080),
+        logLevel: vscodeConfig.get<string>('logLevel') as 'debug' | 'info' | 'warn' | 'error' || 'info'
     };
 }
 
@@ -351,6 +480,9 @@ function registerManagementCommands(context: vscode.ExtensionContext): void {
                 mcpStdioServer.stop();
                 mcpStdioServer = undefined;
             }
+
+            // 停止 WebSocket MCP 服務器
+            await stopWebSocketMCPServer();
             
             // 等待一下
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -383,7 +515,19 @@ function registerManagementCommands(context: vscode.ExtensionContext): void {
         }
     });
 
-    context.subscriptions.push(restartCommand, diagnosticsCommand);
+    // 重啟 WebSocket MCP 服務器命令
+    const restartWebSocketCommand = vscode.commands.registerCommand('mcp-vscode-commands.restart-websocket', async () => {
+        try {
+            console.log('[MCP Extension] 重啟 WebSocket MCP 服務器...');
+            await restartWebSocketMCPServer(context);
+            vscode.window.showInformationMessage('✅ WebSocket MCP 服務器已重啟');
+        } catch (error) {
+            console.error('[MCP Extension] 重啟 WebSocket MCP 服務器失敗:', error);
+            vscode.window.showErrorMessage(`重啟 WebSocket MCP 服務器失敗: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    context.subscriptions.push(restartCommand, diagnosticsCommand, restartWebSocketCommand);
 }
 
 /**
@@ -411,12 +555,27 @@ function getDiagnostics(enableDetailedDiagnostics: boolean = false): string {
             diagnostics.push(`⚠️  健康檢查失敗: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
+
+    // WebSocket MCP 服務器狀態
+    if (websocketMCPServer) {
+        try {
+            const status = websocketMCPServer.getStatus();
+            diagnostics.push(`🌐 WebSocket MCP 服務器: ${status.isRunning ? '✅ 運行中' : '⭕ 已停止'}`);
+            diagnostics.push(`⏱️  運行時間: ${status.uptime.toFixed(2)}s`);
+            diagnostics.push(`🔌 端口: ${status.port}`);
+            diagnostics.push(`👥 客戶端數量: ${status.clientCount}`);
+        } catch (error) {
+            diagnostics.push(`⚠️  WebSocket MCP 服務器狀態檢查失敗: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
     
     // 配置資訊
     const extensionConfig = getExtensionConfig();
     diagnostics.push(`⚙️  自動啟動: ${extensionConfig.autoStart ? '✅' : '❌'}`);
-    diagnostics.push(`📝 日誌等級: info`); // 預設日誌等級
+    diagnostics.push(`📝 日誌等級: ${extensionConfig.logLevel}`); // 使用配置的日誌等級
     diagnostics.push(`🔍 詳細診斷: ${extensionConfig.enableDiagnostics ? '✅' : '❌'}`);
+    diagnostics.push(`🌐 WebSocket 自動啟動: ${extensionConfig.websocketAutoStart ? '✅' : '❌'}`);
+    diagnostics.push(`🌐 WebSocket 端口: ${extensionConfig.websocketPort}`);
     
     // 如果啟用詳細診斷，添加更多技術資訊
     if (enableDetailedDiagnostics) {
@@ -437,6 +596,19 @@ function getDiagnostics(enableDetailedDiagnostics: boolean = false): string {
                 diagnostics.push(`🗂️  外部記憶體: ${(health.memoryUsage.external / 1024 / 1024).toFixed(2)}MB`);
             } catch (error) {
                 diagnostics.push(`⚠️  詳細狀態獲取失敗: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        }
+
+        if (websocketMCPServer) {
+            try {
+                const status = websocketMCPServer.getStatus();
+                diagnostics.push(`\n--- WebSocket 服務器詳細狀態 ---`);
+                diagnostics.push(`🔄 運行狀態: ${status.isRunning ? '運行中' : '已停止'}`);
+                diagnostics.push(`🔌 監聽端口: ${status.port}`);
+                diagnostics.push(`👥 活躍客戶端: ${status.clientCount}`);
+                diagnostics.push(`⏱️  服務器運行時間: ${status.uptime.toFixed(2)}s`);
+            } catch (error) {
+                diagnostics.push(`⚠️  WebSocket 服務器詳細狀態獲取失敗: ${error instanceof Error ? error.message : String(error)}`);
             }
         }
     }
