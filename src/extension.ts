@@ -515,10 +515,34 @@ function registerManagementCommands(context: vscode.ExtensionContext): void {
         }
     });
 
-    // 重啟 WebSocket MCP 服務器命令
-    const restartWebSocketCommand = vscode.commands.registerCommand('mcp-vscode-commands.restart-websocket', async () => {
+    // 啟動 WebSocket MCP 服務器命令
+    const startWebSocketCommand = vscode.commands.registerCommand('mcp-vscode-commands.startWebSocket', async () => {
         try {
-            console.log('[MCP Extension] 重啟 WebSocket MCP 服務器...');
+            console.log('[MCP Extension] 🚀 啟動 WebSocket MCP 服務器...');
+            await startWebSocketMCPServer(context);
+            vscode.window.showInformationMessage('✅ WebSocket MCP 服務器已啟動');
+        } catch (error) {
+            console.error('[MCP Extension] 啟動 WebSocket MCP 服務器失敗:', error);
+            vscode.window.showErrorMessage(`啟動 WebSocket MCP 服務器失敗: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    // 停止 WebSocket MCP 服務器命令
+    const stopWebSocketCommand = vscode.commands.registerCommand('mcp-vscode-commands.stopWebSocket', async () => {
+        try {
+            console.log('[MCP Extension] 🛑 停止 WebSocket MCP 服務器...');
+            await stopWebSocketMCPServer();
+            vscode.window.showInformationMessage('✅ WebSocket MCP 服務器已停止');
+        } catch (error) {
+            console.error('[MCP Extension] 停止 WebSocket MCP 服務器失敗:', error);
+            vscode.window.showErrorMessage(`停止 WebSocket MCP 服務器失敗: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    // 重啟 WebSocket MCP 服務器命令
+    const restartWebSocketCommand = vscode.commands.registerCommand('mcp-vscode-commands.restartWebSocket', async () => {
+        try {
+            console.log('[MCP Extension] 🔄 重啟 WebSocket MCP 服務器...');
             await restartWebSocketMCPServer(context);
             vscode.window.showInformationMessage('✅ WebSocket MCP 服務器已重啟');
         } catch (error) {
@@ -527,7 +551,7 @@ function registerManagementCommands(context: vscode.ExtensionContext): void {
         }
     });
 
-    context.subscriptions.push(restartCommand, diagnosticsCommand, restartWebSocketCommand);
+    context.subscriptions.push(restartCommand, diagnosticsCommand, startWebSocketCommand, stopWebSocketCommand, restartWebSocketCommand);
 }
 
 /**
