@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { WebSocketClient } from './websocket-server';
-import { WebSocketMessage, MessageType } from './websocket-server';
+import { WebSocketClient } from './websocket-client';
+import { WebSocketMessage, MessageType } from './interfaces/websocket';
 
 /**
  * 連接管理器
@@ -285,7 +285,7 @@ export class ConnectionManager {
     let sentCount = 0;
     
     this.connections.forEach((connection) => {
-      if (connection.status === 'active' && connection.client.isConnected()) {
+              if (connection.status === 'active' && connection.client.isConnected) {
         try {
           connection.client.send(message);
           sentCount++;
@@ -304,7 +304,7 @@ export class ConnectionManager {
    */
   sendToConnection(clientId: string, message: WebSocketMessage): boolean {
     const connection = this.connections.get(clientId);
-    if (connection && connection.status === 'active' && connection.client.isConnected()) {
+            if (connection && connection.status === 'active' && connection.client.isConnected) {
       try {
         connection.client.send(message);
         this.recordSentMessage(clientId);

@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import * as WebSocket from 'ws';
 import { IncomingMessage } from 'http';
-import { VSCodeCommandsTools } from '../tools/vscode-commands';
+import { VSCodeCommandsTools } from './vscode-commands-tools';
 import { MCPServerConfig } from '../types';
-import { WebSocketMessage, MessageType, WebSocketClient } from './websocket-server';
+import { WebSocketMessage, MessageType } from './interfaces/websocket';
+import { WebSocketClient } from './websocket-client';
 
 /**
  * WebSocket MCP Server Extension
@@ -207,7 +208,7 @@ export class WebSocketMCPServerExtension {
    */
   private handleClientConnection(client: WebSocketClient): void {
     // 處理消息
-    client.on('message', async (data: any) => {
+    client.ws.on('message', async (data: any) => {
       try {
         const message = JSON.parse(data);
         await this.processMCPMessage(client, message);
@@ -218,14 +219,14 @@ export class WebSocketMCPServerExtension {
     });
     
     // 處理連接關閉
-    client.on('close', () => {
+    client.ws.on('close', () => {
       console.log(`[WebSocket MCP] Client disconnected: ${client.id}`);
       this.clients.delete(client.id);
       this.updateStatusBar();
     });
     
     // 處理連接錯誤
-    client.on('error', (error) => {
+    client.ws.on('error', (error: any) => {
       console.error(`[WebSocket MCP] Client error for ${client.id}:`, error);
       this.clients.delete(client.id);
       this.updateStatusBar();
@@ -382,7 +383,7 @@ export class WebSocketMCPServerExtension {
   private startHeartbeat(): void {
     this.heartbeatInterval = setInterval(() => {
       this.clients.forEach((client) => {
-        if (client.isConnected()) {
+        if (client.isConnected) {
           this.sendHeartbeat(client);
         }
       });
@@ -444,7 +445,7 @@ export class WebSocketMCPServerExtension {
   }> {
     return Array.from(this.clients.values()).map(client => ({
       id: client.id,
-      connected: client.isConnected()
+              connected: client.isConnected
     }));
   }
   
@@ -453,7 +454,7 @@ export class WebSocketMCPServerExtension {
    */
   public broadcast(message: WebSocketMessage): void {
     this.clients.forEach((client) => {
-      if (client.isConnected()) {
+      if (client.isConnected) {
         client.send(message);
       }
     });

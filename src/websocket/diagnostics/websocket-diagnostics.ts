@@ -27,7 +27,7 @@ export class WebSocketDiagnostics {
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
     this.statusBarItem.name = 'MCP WebSocket Diagnostics';
     this.statusBarItem.tooltip = 'Click to show diagnostics';
-    this.statusBarItem.command = 'mcp-vscode-commands.showWebSocketDiagnostics';
+    this.statusBarItem.command = 'mcp-vscode-commands.diagnostics';
     this.updateStatusBar();
     this.statusBarItem.show();
   }

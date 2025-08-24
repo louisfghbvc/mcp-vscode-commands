@@ -2,18 +2,7 @@
  * MCP VSCode Commands 類型定義
  */
 
-export interface MCPToolResult {
-  content: Array<{
-    type: 'text';
-    text: string;
-  }>;
-}
 
-export interface VSCodeCommandInfo {
-  id: string;
-  title?: string;
-  category?: string;
-}
 
 export interface CommandExecutionResult {
   success: boolean;
@@ -29,10 +18,4 @@ export interface MCPServerConfig {
   tools?: string[];
 }
 
-export interface LogContext {
-  command?: string;
-  args?: any;
-  filter?: string;
-  error?: string;
-  timestamp: string;
-}
+

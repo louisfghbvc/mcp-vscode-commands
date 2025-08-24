@@ -61,21 +61,6 @@
         "command": "mcp-vscode-commands.restartWebSocket",
         "title": "Restart WebSocket MCP Server",
         "category": "MCP WebSocket"
-      },
-      {
-        "command": "mcp-vscode-commands.showWebSocketDiagnostics",
-        "title": "Show WebSocket Diagnostics",
-        "category": "MCP WebSocket"
-      },
-      {
-        "command": "mcp-vscode-commands.runWebSocketHealthCheck",
-        "title": "Run WebSocket Health Check",
-        "category": "MCP WebSocket"
-      },
-      {
-        "command": "mcp-vscode-commands.exportWebSocketDiagnostics",
-        "title": "Export WebSocket Diagnostics",
-        "category": "MCP WebSocket"
       }
     ],
     "configuration": {
@@ -84,7 +69,7 @@
         "mcpVscodeCommands.autoStart": {
           "type": "boolean",
           "default": true,
-          "description": "擴展啟動時自動註冊 MCP Stdio 服務器（使用 Cursor Extension API）"
+          "description": "擴展啟動時自動啟動 WebSocket MCP 服務器"
         },
         "mcpVscodeCommands.logLevel": {
           "type": "string",
@@ -96,11 +81,6 @@
           ],
           "default": "info",
           "description": "MCP 服務器日誌記錄級別"
-        },
-        "mcpVscodeCommands.enableDiagnostics": {
-          "type": "boolean",
-          "default": false,
-          "description": "啟用詳細的診斷和性能監控資訊"
         },
         "mcpVscodeCommands.websocketPort": {
           "type": "number",
@@ -129,29 +109,17 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js",
-    "test:vscode": "node run-vscode-tests.js",
-    "test:websocket": "node test-runner.js",
-    "test:e2e": "npx tsx test/e2e/run-tests.ts",
-    "test:e2e:functional": "npx tsx test/e2e/run-tests.ts --mode functional",
-    "test:e2e:performance": "npx tsx test/e2e/run-tests.ts --mode performance",
-    "test:e2e:quick": "npx tsx test/e2e/run-tests.ts --mode quick",
-    "benchmark": "npx tsx test/e2e/run-tests.ts --mode performance"
+    "build": "npm run compile",
+    "clean": "rm -rf out",
+    "package": "vsce package"
   },
   "devDependencies": {
-    "@types/glob": "^9.0.0",
-    "@types/mocha": "^10.0.10",
     "@types/node": "^18.x",
     "@types/vscode": "^1.74.0",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
-    "@vscode/test-electron": "^2.5.2",
     "eslint": "^8.28.0",
-    "glob": "^11.0.3",
-    "mocha": "^11.7.1",
-    "tsx": "^4.6.0",
     "typescript": "^4.9.4"
   },
   "dependencies": {
