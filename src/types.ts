@@ -22,8 +22,11 @@ export interface CommandExecutionResult {
 }
 
 export interface MCPServerConfig {
-  autoStart: boolean;
-  logLevel: 'debug' | 'info' | 'warn' | 'error';
+  autoStart?: boolean;
+  logLevel?: 'debug' | 'info' | 'warn' | 'error';
+  name?: string;
+  version?: string;
+  tools?: string[];
 }
 
 export interface LogContext {

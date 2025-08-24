@@ -46,6 +46,36 @@
         "command": "mcp-vscode-commands.diagnostics",
         "title": "Show MCP Diagnostics",
         "category": "MCP"
+      },
+      {
+        "command": "mcp-vscode-commands.startWebSocket",
+        "title": "Start WebSocket MCP Server",
+        "category": "MCP WebSocket"
+      },
+      {
+        "command": "mcp-vscode-commands.stopWebSocket",
+        "title": "Stop WebSocket MCP Server",
+        "category": "MCP WebSocket"
+      },
+      {
+        "command": "mcp-vscode-commands.restartWebSocket",
+        "title": "Restart WebSocket MCP Server",
+        "category": "MCP WebSocket"
+      },
+      {
+        "command": "mcp-vscode-commands.showWebSocketDiagnostics",
+        "title": "Show WebSocket Diagnostics",
+        "category": "MCP WebSocket"
+      },
+      {
+        "command": "mcp-vscode-commands.runWebSocketHealthCheck",
+        "title": "Run WebSocket Health Check",
+        "category": "MCP WebSocket"
+      },
+      {
+        "command": "mcp-vscode-commands.exportWebSocketDiagnostics",
+        "title": "Export WebSocket Diagnostics",
+        "category": "MCP WebSocket"
       }
     ],
     "configuration": {
@@ -71,6 +101,26 @@
           "type": "boolean",
           "default": false,
           "description": "啟用詳細的診斷和性能監控資訊"
+        },
+        "mcpVscodeCommands.websocketPort": {
+          "type": "number",
+          "default": 19847,
+          "description": "WebSocket MCP 服務器監聽端口"
+        },
+        "mcpVscodeCommands.websocketAutoStart": {
+          "type": "boolean",
+          "default": false,
+          "description": "擴展啟動時自動啟動 WebSocket MCP 服務器"
+        },
+        "mcpVscodeCommands.websocketMaxConnections": {
+          "type": "number",
+          "default": 10,
+          "description": "WebSocket 服務器最大連接數"
+        },
+        "mcpVscodeCommands.websocketConnectionTimeout": {
+          "type": "number",
+          "default": 30000,
+          "description": "WebSocket 連接超時時間（毫秒）"
         }
       }
     }

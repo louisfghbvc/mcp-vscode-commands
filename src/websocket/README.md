@@ -1,240 +1,253 @@
 # WebSocket MCP 架構
 
-## 概述
+這個目錄包含了完整的 WebSocket MCP 架構實現，包括 Extension Server 和 MCP Client。
 
-這個目錄包含了 MCP VSCode Commands 擴展的 WebSocket 架構實現。新的架構將從基於 TCP 橋接的模式轉換為使用 WebSocket 通信的現代化架構。
+## 架構概述
 
-## 架構組件
+```
+┌─────────────────┐    WebSocket    ┌──────────────────┐
+│   MCP Client    │ ←────────────→  │ Extension Server │
+│  (Independent   │                 │  (VS Code Ext)   │
+│   Process)      │                 │                  │
+└─────────────────┘                 └──────────────────┘
+```
 
-### 1. WebSocket Server (`websocket-server.ts`)
+## 組件說明
 
-**功能**: 運行在 VS Code Extension 中，作為 WebSocket Server 處理來自 MCP Client 進程的連接和消息。
+### 1. Extension Server (`websocket-mcp-server-extension.ts`)
+- VS Code Extension 端的 WebSocket 服務器
+- 處理來自 MCP Client 的連接和請求
+- 執行 VS Code 命令並返回結果
 
-**主要特性**:
-- 監聽 WebSocket 連接（默認端口 19847）
-- 處理 MCP 協議消息
-- 管理客戶端連接
-- 實現心跳機制
-- 錯誤處理和日誌記錄
+### 2. MCP Client (`websocket-mcp-client.ts`)
+- 獨立的進程，作為 WebSocket Client
+- 連接到 Extension 的 WebSocket Server
+- 處理 stdio 通信和消息轉發
 
-**使用方式**:
+### 3. Client Launcher (`mcp-client-launcher.ts`)
+- 用於啟動和管理 MCP Client 進程
+- 提供進程生命週期管理
+- 支援自動重啟和錯誤恢復
+
+### 4. 連接管理 (`connection-manager.ts`)
+- 管理 WebSocket 連接的生命週期
+- 提供連接統計和健康檢查
+- 支援多個並發連接
+
+### 5. 診斷系統 (`diagnostics/websocket-diagnostics.ts`)
+- 提供診斷信息和性能監控
+- 實現健康檢查和狀態顯示
+- 支援診斷信息導出
+
+## 使用方法
+
+### 啟動 Extension Server
+
+在 VS Code 中，Extension Server 會自動啟動並監聽 WebSocket 連接。
+
+### 啟動 MCP Client
+
+#### 方法 1: 直接運行
+```bash
+# 編譯 TypeScript
+npm run compile
+
+# 運行 MCP Client
+node out/websocket/websocket-mcp-client.js
+```
+
+#### 方法 2: 使用啟動器
+```bash
+# 啟動
+node out/websocket/mcp-client-launcher.js start
+
+# 停止
+node out/websocket/mcp-client-launcher.js stop
+
+# 重啟
+node out/websocket/mcp-client-launcher.js restart
+
+# 查看狀態
+node out/websocket/mcp-client-launcher.js status
+```
+
+### 配置選項
+
+可以通過環境變數配置 MCP Client：
+
+```bash
+export WEBSOCKET_URL=ws://localhost:19847
+node out/websocket/websocket-mcp-client.js
+```
+
+## 通信協議
+
+### 消息格式
+
+所有 WebSocket 消息都遵循以下格式：
+
 ```typescript
-import { WebSocketServer } from './websocket/websocket-server';
-
-const server = new WebSocketServer(19847);
-// 服務器會自動開始監聽連接
-```
-
-### 2. MCP Server Process (`mcp-server-process.ts`)
-
-**功能**: 管理獨立的 MCP 服務器進程，該進程作為 WebSocket Client 連接到 Extension 的 WebSocket Server。
-
-**主要特性**:
-- 進程生命週期管理（啟動、停止、重啟）
-- 自動重連機制
-- 進程健康監控
-- 錯誤恢復策略
-
-**使用方式**:
-```typescript
-import { MCPServerProcess } from './websocket/mcp-server-process';
-
-const process = new MCPServerProcess();
-await process.start();
-```
-
-### 3. 通信接口 (`interfaces/communication.ts`)
-
-**功能**: 定義 Extension 和 MCP Server 進程之間的通信協議接口。
-
-**包含接口**:
-- `ProcessCommunication`: 進程間通信
-- `HealthStatus`: 健康狀態
-- `ConnectionStats`: 連接統計
-- `ToolCallRequest/Response`: 工具調用
-- `ErrorHandler`: 錯誤處理
-- `ReconnectStrategy`: 重連策略
-- `PerformanceMonitor`: 性能監控
-
-### 4. 錯誤處理 (`error-handling/`)
-
-**功能**: 實現錯誤處理和重連機制。
-
-**組件**:
-- `ConnectionManager`: 連接管理器
-- `ReconnectStrategy`: 重連策略實現
-
-### 5. 性能監控 (`monitoring/`)
-
-**功能**: 收集和追蹤 WebSocket 通信的性能指標。
-
-**組件**:
-- `PerformanceMetrics`: 性能指標收集器
-- `HealthChecker`: 健康檢查系統
-
-## 通信流程
-
-### 1. 啟動流程
-```
-Extension 啟動 → 啟動 WebSocket Server → 啟動 MCP Server 進程 → MCP Server 連接到 WebSocket Server
-```
-
-### 2. 消息流程
-```
-Cursor → MCP Server 進程 → WebSocket → Extension → 執行 VSCode 命令 → 返回結果
-```
-
-### 3. 錯誤處理流程
-```
-連接斷開 → 檢測錯誤 → 啟動重連策略 → 嘗試重連 → 恢復連接或重啟進程
-```
-
-## 配置選項
-
-### WebSocket 服務器配置
-```typescript
-interface WebSocketConfig {
-  server: {
-    port: number;        // 默認: 19847
-    host: string;        // 默認: localhost
-    path: string;        // 默認: /
-  };
-  connection: {
-    timeout: number;     // 默認: 10000ms
-    maxRetries: number;  // 默認: 5
-    retryDelay: number;  // 默認: 1000ms
-    heartbeatInterval: number; // 默認: 30000ms
-  };
-  performance: {
-    maxConnections: number;     // 默認: 10
-    messageBufferSize: number;  // 默認: 100
-    flushInterval: number;      // 默認: 100ms
-  };
+interface WebSocketMessage {
+  id: string;
+  type: MessageType;
+  timestamp: number;
+  data: any;
+  error?: string;
 }
 ```
 
-## 性能指標
+### 消息類型
 
-系統會自動收集以下性能指標：
+- `MCP_REQUEST`: MCP 請求
+- `MCP_RESPONSE`: MCP 響應
+- `CONNECT`: 連接請求
+- `HEARTBEAT`: 心跳消息
+- `ERROR`: 錯誤消息
 
-- **延遲**: 消息處理延遲
-- **吞吐量**: 每秒處理的消息數
-- **錯誤率**: 錯誤消息的比例
-- **連接數**: 活躍連接數量
-- **記憶體使用**: 記憶體消耗
-- **CPU 使用率**: CPU 使用情況
+### MCP 請求格式
 
-## 錯誤處理策略
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "request_1",
+  "method": "tools/list",
+  "params": {
+    "name": "tool_name",
+    "arguments": {}
+  }
+}
+```
 
-### 1. 連接斷開
-- 自動檢測連接狀態
-- 指數退避重連策略
-- 最大重連嘗試次數限制
+### MCP 響應格式
 
-### 2. 進程崩潰
-- 自動檢測進程退出
-- 自動重啟進程
-- 最大重啟嘗試次數限制
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "request_1",
+  "result": {
+    "tools": ["tool1", "tool2"]
+  }
+}
+```
 
-### 3. 消息處理錯誤
-- 錯誤日誌記錄
+## 錯誤處理
+
+### 連接錯誤
+- 自動重連機制
+- 指數退避策略
+- 最大重連次數限制
+
+### 消息錯誤
+- JSON 解析錯誤處理
+- 格式驗證
 - 錯誤響應返回
-- 不影響其他消息處理
 
-## 安全考慮
+### 進程錯誤
+- 信號處理 (SIGINT, SIGTERM)
+- 異常捕獲
+- 優雅關閉
 
-### 1. 連接驗證
-- 客戶端身份驗證
-- 連接來源限制
-- 消息大小限制
+## 性能優化
 
-### 2. 錯誤隔離
-- 進程級別隔離
-- 連接級別隔離
-- 錯誤不會影響整個系統
+### 連接管理
+- 連接池管理
+- 超時處理
+- 資源清理
 
-## 監控和診斷
+### 消息處理
+- 消息緩衝
+- 批處理支援
+- 非阻塞 I/O
 
-### 1. 健康檢查
-- 定期健康狀態檢查
-- 自動故障檢測
-- 性能指標收集
+### 監控指標
+- 連接數量
+- 消息吞吐量
+- 響應時間
+- 錯誤率
 
-### 2. 日誌記錄
-- 結構化日誌格式
-- 不同級別的日誌
-- 日誌輪轉和清理
+## 測試
 
-### 3. 診斷工具
-- 連接狀態查詢
-- 性能報告生成
-- 錯誤分析工具
+運行測試套件：
 
-## 使用示例
+```bash
+# 編譯
+npm run compile
 
-### 基本使用
-```typescript
-import { WebSocketServer } from './websocket/websocket-server';
-import { MCPServerProcess } from './websocket/mcp-server-process';
-
-// 啟動 WebSocket 服務器
-const server = new WebSocketServer(19847);
-
-// 啟動 MCP 服務器進程
-const mcpProcess = new MCPServerProcess();
-await mcpProcess.start();
-
-// 檢查健康狀態
-const isHealthy = mcpProcess.isHealthy();
-console.log('MCP Process healthy:', isHealthy);
+# 運行測試
+node out/websocket/test/websocket-client-test.js
 ```
 
-### 性能監控
-```typescript
-import { PerformanceMetrics } from './websocket/monitoring/performance-metrics';
-
-const metrics = new PerformanceMetrics();
-
-// 記錄性能指標
-metrics.recordMetric('message_latency', 150);
-metrics.recordMetric('messages_per_second', 100);
-
-// 獲取性能報告
-const report = metrics.getPerformanceReport();
-console.log('Performance report:', report);
-```
+測試覆蓋：
+- 客戶端創建
+- 啟動器功能
+- 進程信號處理
+- 連接管理
+- 消息處理
+- 錯誤處理
+- 重連機制
+- 優雅關閉
 
 ## 故障排除
 
 ### 常見問題
 
 1. **連接失敗**
-   - 檢查端口是否被佔用
-   - 確認防火牆設置
-   - 檢查網絡連接
+   - 檢查 WebSocket URL 是否正確
+   - 確認 Extension Server 是否運行
+   - 檢查防火牆設置
 
-2. **進程啟動失敗**
-   - 檢查 Node.js 版本
-   - 確認腳本路徑正確
-   - 檢查環境變量設置
+2. **進程崩潰**
+   - 查看錯誤日誌
+   - 檢查依賴項版本
+   - 驗證配置參數
 
 3. **性能問題**
-   - 監控記憶體使用
-   - 檢查 CPU 使用率
-   - 分析延遲指標
+   - 監控連接數量
+   - 檢查消息大小
+   - 優化重連策略
 
-### 調試模式
+### 日誌級別
 
-設置環境變量啟用調試模式：
+可以設置環境變數來控制日誌級別：
+
 ```bash
-export NODE_ENV=development
-export DEBUG=websocket:*
+export LOG_LEVEL=debug
+node out/websocket/websocket-mcp-client.js
 ```
 
-## 未來改進
+## 開發指南
 
-1. **負載均衡**: 支援多個 MCP 服務器進程
-2. **集群模式**: 支援多節點部署
-3. **安全增強**: 添加 TLS 加密和身份驗證
-4. **監控儀表板**: Web 界面監控系統狀態
-5. **自動擴展**: 根據負載自動調整進程數量
+### 添加新功能
+
+1. 在相應的類中添加方法
+2. 更新接口定義
+3. 添加測試用例
+4. 更新文檔
+
+### 調試
+
+使用 VS Code 調試器：
+
+1. 設置斷點
+2. 啟動調試會話
+3. 運行 MCP Client
+4. 檢查變數和調用堆疊
+
+### 性能分析
+
+使用 Node.js 內建工具：
+
+```bash
+# CPU 分析
+node --prof out/websocket/websocket-mcp-client.js
+
+# 記憶體分析
+node --inspect out/websocket/websocket-mcp-client.js
+```
+
+## 相關文檔
+
+- [WebSocket MCP 架構設計](../.ai/tasks/task9_websocket_architecture_design.md)
+- [WebSocket Extension Server 實現](../.ai/tasks/task10_websocket_extension_server.md)
+- [WebSocket MCP Client 實現](../.ai/tasks/task11_websocket_mcp_client.md)
+- [WebSocket MCP 重構計劃](../.ai/plans/features/websocket-mcp-refactor-plan.md)

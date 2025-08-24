@@ -38,11 +38,11 @@
 - [✅] **ID 9: WebSocket 架構設計** (Priority: critical) [fully_implemented]
 > 設計新的 WebSocket MCP 架構，從 TCP 橋接模式轉換為 WebSocket 通信模式
 
-- [ ] **ID 10: WebSocket Extension Server 實現** (Priority: critical)
+- [✅] **ID 10: WebSocket Extension Server 實現** (Priority: critical) [fully_implemented]
 > Dependencies: 9
 > 實現 Extension 端的 WebSocket Server，處理來自 MCP Client 的連接和消息
 
-- [ ] **ID 11: WebSocket MCP Client 實現** (Priority: critical)
+- [✅] **ID 11: WebSocket MCP Client 實現** (Priority: critical) [completed]
 > Dependencies: 9, 10
 > 實現獨立的 MCP Client 進程，作為 WebSocket Client 連接到 Extension Server
 
